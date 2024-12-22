@@ -5,26 +5,33 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/eniayomi/k8stool/internal/k8s"
+	"k8stool/internal/k8s"
+	"k8stool/pkg/utils"
+
 	"github.com/spf13/cobra"
 )
 
 func getDeploymentsCmd() *cobra.Command {
 	var namespace string
+	var allNamespaces bool
 
 	cmd := &cobra.Command{
-		Use:   "deployments [namespace]",
-		Short: "List all deployments in the specified namespace",
-		Args:  cobra.MaximumNArgs(1),
+		Use:     "deployments [namespace]",
+		Aliases: []string{"deploy"},
+		Short:   "List all deployments in the specified namespace",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// If namespace is provided as an argument, use it
+			client, err := k8s.NewClient()
+			if err != nil {
+				return err
+			}
+
 			if len(args) > 0 {
 				namespace = args[0]
 			}
 
-			client, err := k8s.NewClient()
-			if err != nil {
-				return err
+			if allNamespaces {
+				namespace = ""
 			}
 
 			deployments, err := client.ListDeployments(namespace)
@@ -32,19 +39,31 @@ func getDeploymentsCmd() *cobra.Command {
 				return err
 			}
 
-			// Initialize tabwriter
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.TabIndent)
+			w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
 
-			// Print headers
-			fmt.Fprintln(w, "NAME\tREPLICAS\tAVAILABLE\tREADY")
+			if allNamespaces {
+				fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE")
+			} else {
+				fmt.Fprintln(w, "NAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE")
+			}
 
-			// Print deployments
 			for _, d := range deployments {
-				fmt.Fprintf(w, "%s\t%d\t%d\t%s\n",
-					d.Name,
-					d.DesiredReplicas,
-					d.AvailableReplicas,
-					fmt.Sprintf("%d/%d", d.AvailableReplicas, d.DesiredReplicas))
+				if allNamespaces {
+					fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t%s\n",
+						d.Namespace,
+						d.Name,
+						d.Ready,
+						d.UpToDate,
+						d.Available,
+						utils.FormatDuration(d.Age))
+				} else {
+					fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\n",
+						d.Name,
+						d.Ready,
+						d.UpToDate,
+						d.Available,
+						utils.FormatDuration(d.Age))
+				}
 			}
 
 			w.Flush()
@@ -53,5 +72,6 @@ func getDeploymentsCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
+	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List deployments across all namespaces")
 	return cmd
 }

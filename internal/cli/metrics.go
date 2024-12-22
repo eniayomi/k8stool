@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/eniayomi/k8stool/internal/k8s"
+	"k8stool/internal/k8s"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )

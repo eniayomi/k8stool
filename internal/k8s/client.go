@@ -23,17 +23,21 @@ type Client struct {
 
 type Pod struct {
 	Name       string
+	Namespace  string
 	Ready      string
 	Status     string
 	Restarts   int32
-	Age        string
+	Age        time.Duration
 	Controller string
 }
 
 type Deployment struct {
-	Name              string
-	AvailableReplicas int32
-	DesiredReplicas   int32
+	Name      string
+	Namespace string
+	Ready     string
+	UpToDate  int32
+	Available int32
+	Age       time.Duration
 }
 
 type Context struct {
@@ -143,8 +147,10 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) ListPods(namespace string) ([]Pod, error) {
-	pods, err := c.clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+func (c *Client) ListPods(namespace, labelSelector string) ([]Pod, error) {
+	pods, err := c.clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -167,8 +173,7 @@ func (c *Client) ListPods(namespace string) ([]Pod, error) {
 		}
 
 		// Calculate age
-		age := time.Since(pod.CreationTimestamp.Time).Round(time.Second)
-		ageStr := formatAge(age)
+		age := time.Since(pod.CreationTimestamp.Time)
 
 		// Determine controller type
 		controller := "<none>"
@@ -200,10 +205,11 @@ func (c *Client) ListPods(namespace string) ([]Pod, error) {
 
 		podList = append(podList, Pod{
 			Name:       pod.Name,
+			Namespace:  pod.Namespace,
 			Ready:      fmt.Sprintf("%d/%d", readyContainers, totalContainers),
 			Status:     string(pod.Status.Phase),
 			Restarts:   restarts,
-			Age:        ageStr,
+			Age:        age,
 			Controller: controller,
 		})
 	}
@@ -235,10 +241,16 @@ func (c *Client) ListDeployments(namespace string) ([]Deployment, error) {
 
 	var deploymentList []Deployment
 	for _, d := range deployments.Items {
+		age := time.Since(d.CreationTimestamp.Time)
+		ready := fmt.Sprintf("%d/%d", d.Status.ReadyReplicas, d.Status.Replicas)
+
 		deploymentList = append(deploymentList, Deployment{
-			Name:              d.Name,
-			AvailableReplicas: d.Status.AvailableReplicas,
-			DesiredReplicas:   *d.Spec.Replicas,
+			Name:      d.Name,
+			Namespace: d.Namespace,
+			Ready:     ready,
+			UpToDate:  d.Status.UpdatedReplicas,
+			Available: d.Status.AvailableReplicas,
+			Age:       age,
 		})
 	}
 

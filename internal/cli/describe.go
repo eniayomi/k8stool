@@ -3,8 +3,9 @@ package cli
 import (
 	"fmt"
 
-	"github.com/eniayomi/k8stool/internal/k8s"
-	"github.com/fatih/color"
+	"k8stool/internal/k8s"
+	"k8stool/pkg/utils"
+
 	"github.com/spf13/cobra"
 )
 
@@ -35,45 +36,36 @@ func getDescribeCmd() *cobra.Command {
 			}
 
 			// Print pod details
-			bold := color.New(color.Bold)
-
-			bold.Println("Pod Details:")
+			fmt.Println(utils.Bold("Pod Details:"))
 			fmt.Printf("  Name:            %s\n", pod.Name)
 			fmt.Printf("  Namespace:       %s\n", pod.Namespace)
 			fmt.Printf("  Node:            %s\n", pod.NodeName)
-			fmt.Printf("  Status:          %s\n", colorizeStatus(pod.Status))
+			fmt.Printf("  Status:          %s\n", utils.ColorizeStatus(pod.Status))
 			fmt.Printf("  IP:              %s\n", pod.PodIP)
 			fmt.Printf("  Created:         %s\n", pod.CreatedAt)
 
-			if len(pod.NodeSelector) > 0 {
-				fmt.Printf("  Node-Selectors:   %s: %s", pod.NodeSelector)
-			} else {
-				fmt.Printf("  Node-Selectors:   <none>\n")
-			}
-
-			if len(pod.Tolerations) > 0 {
-				bold.Println("\nTolerations:")
-				for _, toleration := range pod.Tolerations {
-					fmt.Printf("  • Key: %s, Operator: %s, Value: %s, Effect: %s\n",
-						toleration.Key,
-						toleration.Operator,
-						toleration.Value,
-						toleration.Effect)
-				}
-			}
-
-			if len(pod.Volumes) > 0 {
-				bold.Println("\nVolumes:")
-				for _, vol := range pod.Volumes {
-					fmt.Printf("  • %s (%s):\n", vol.Name, vol.Type)
-					fmt.Printf("    Source: %s\n", vol.Source)
-					if vol.ReadOnly {
-						fmt.Printf("    ReadOnly: true\n")
+			if len(pod.Labels) > 0 {
+				first := true
+				for k, v := range pod.Labels {
+					if first {
+						fmt.Printf("  Labels:          %s=%s\n", k, v)
+						first = false
+					} else {
+						fmt.Printf("                   %s=%s\n", k, v)
 					}
 				}
+			} else {
+				fmt.Printf("  Labels:          <none>\n")
 			}
 
-			bold.Println("\nContainers:")
+			fmt.Printf("  Node-Selectors:  ")
+			if len(pod.NodeSelector) > 0 {
+				fmt.Printf("%s: %s", pod.NodeSelector)
+			} else {
+				fmt.Printf("<none>\n")
+			}
+
+			fmt.Printf("\n%s\n", utils.Bold("Containers:"))
 			for _, container := range pod.Containers {
 				fmt.Printf("\n  • %s:\n", container.Name)
 				fmt.Printf("      Image:         %s\n", container.Image)
@@ -102,7 +94,7 @@ func getDescribeCmd() *cobra.Command {
 			}
 
 			if len(pod.Events) > 0 {
-				bold.Println("\nEvents:")
+				fmt.Printf("\n%s\n", utils.Bold("Events:"))
 				for _, event := range pod.Events {
 					fmt.Printf("  %s  %s  %s\n",
 						event.Time,
@@ -120,7 +112,7 @@ func getDescribeCmd() *cobra.Command {
 }
 
 func getResourceValue(value string) string {
-	if value == "" {
+	if value == "" || value == "0" {
 		return "<none>"
 	}
 	return value

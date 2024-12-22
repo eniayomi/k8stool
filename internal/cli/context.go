@@ -5,7 +5,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/eniayomi/k8stool/internal/k8s"
+	"k8stool/internal/k8s"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )

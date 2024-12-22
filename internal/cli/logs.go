@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/eniayomi/k8stool/internal/k8s"
+	"k8stool/internal/k8s"
 )
 
 func getLogsCmd() *cobra.Command {

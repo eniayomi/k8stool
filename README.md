@@ -13,8 +13,14 @@ go install github.com/eniayomi/k8stool
 ### Pod Management
 - ✅ List pods with detailed status
   ```bash
-  k8stool get pods
-  k8stool get pods -n <namespace>
+  k8stool get pods                    # List pods in default namespace
+  k8stool get pods -n kube-system     # List pods in specific namespace
+  k8stool get pods -A                 # List pods in all namespaces
+  k8stool get pods --metrics          # Show CPU/Memory usage
+  k8stool get pods -l app=nginx       # Filter by labels
+  k8stool get pods -s Running         # Filter by status
+  k8stool get pods --sort age         # Sort by age (oldest first)
+  k8stool get pods --sort age --reverse # Sort by age (newest first)
   ```
 - ✅ Describe pods with comprehensive information
   ```bash
@@ -23,35 +29,16 @@ go install github.com/eniayomi/k8stool
   ```
 - ✅ Show pod metrics (CPU/Memory usage)
   ```bash
-  k8stool metrics <pod-name>
-  k8stool metrics <pod-name> -n <namespace>
+  k8stool get pods --metrics
   ```
-- ⬜ Execute commands in pods
+
+### Deployment Management
+- ✅ List deployments with status
   ```bash
-  # Coming soon
-  k8stool exec <pod-name> -- <command>
-  ```
-- ⬜ Stream pod logs
-  ```bash
-  # Coming soon
-  k8stool logs <pod-name>
-  k8stool logs <pod-name> -f  # follow logs
-  ```
-- ⬜ Port forwarding
-  ```bash
-  # Coming soon
-  k8stool port-forward <pod-name> <local-port>:<pod-port>
-  ```
-- ⬜ Watch pod status changes
-  ```bash
-  # Coming soon
-  k8stool get pods --watch
-  ```
-- ⬜ Delete/force delete pods
-  ```bash
-  # Coming soon
-  k8stool delete pod <pod-name>
-  k8stool delete pod <pod-name> --force
+  k8stool get deployments             # List deployments in default namespace
+  k8stool get deploy                  # Short alias
+  k8stool get deploy -n kube-system   # List in specific namespace
+  k8stool get deploy -A               # List in all namespaces
   ```
 
 ### Pod Information Display
@@ -60,6 +47,7 @@ go install github.com/eniayomi/k8stool
 - ✅ Volume and mount information
 - ✅ Node selector information
 - ✅ Container details
+- ✅ Pod labels
 - ⬜ Init container status
 - ⬜ Pod conditions
 - ⬜ Pod QoS class
@@ -67,28 +55,12 @@ go install github.com/eniayomi/k8stool
 - ⬜ Pod priority class
 
 ### Filtering and Sorting
-- ⬜ Filter pods by labels
-  ```bash
-  # Coming soon
-  k8stool get pods -l app=nginx
-  ```
-- ⬜ Filter pods by status
-  ```bash
-  # Coming soon
-  k8stool get pods --status=Running
-  ```
-- ⬜ Sort by age/status/name
-  ```bash
-  # Coming soon
-  k8stool get pods --sort-by=age
-  k8stool get pods --sort-by=status
-  k8stool get pods --sort-by=name
-  ```
-- ⬜ Namespace filtering
-  ```bash
-  # Coming soon
-  k8stool get pods --all-namespaces
-  ```
+- ✅ Filter pods by labels (`-l app=nginx`)
+- ✅ Filter pods by status (`-s Running`)
+- ✅ Sort by age/status/name (`--sort age`)
+- ✅ Reverse sort order (`--reverse`)
+- ✅ Namespace filtering (`-n kube-system`)
+- ✅ All namespaces view (`-A`)
 
 ## Usage Examples
 
@@ -124,8 +96,22 @@ k8stool metrics my-pod-name -n my-namespace
 ### Pod List
 ```
 NAME                                READY    STATUS    RESTARTS    AGE        CONTROLLER
-nginx-deployment-6799fc88d8-x7zv9   1/1      Running   0           3d         Deployment
-redis-master-0                      1/1      Running   0           11d14h     StatefulSet
+nginx-deployment-6799fc88d8-x7zv9   1/1      Running   0           2y18d      Deployment
+redis-master-0                      1/1      Running   0           5d2h       StatefulSet
+```
+
+### Pod List with Metrics
+```bash
+NAME                     READY    STATUS    RESTARTS    CPU     MEMORY    AGE     CONTROLLER
+nginx-deployment-x7zv9   1/1      Running   0          125m    64Mi      2y18d   Deployment
+redis-master-0           1/1      Running   0          250m    128Mi     5d2h    StatefulSet
+```
+
+### Deployment List
+```bash
+NAME               READY   UP-TO-DATE   AVAILABLE   AGE
+nginx-deployment   3/3     3            3           2y18d
+redis-deployment   2/2     2            2           5d2h
 ```
 
 ### Pod Description
