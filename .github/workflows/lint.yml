@@ -1,0 +1,45 @@
+name: Lint
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: false
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+          only-new-issues: true
+
+      - name: Comment on PR
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = require('${{ github.workspace }}/golangci-lint-results.json');
+            const comments = output.Issues.map(issue => 
+              `**${issue.Severity}**: ${issue.Text}\n` +
+              `File: ${issue.Pos.Filename}:${issue.Pos.Line}`
+            ).join('\n\n');
+            
+            if (comments) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '### Linting Issues Found\n\n' + comments
+              });
+            } 
