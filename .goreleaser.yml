@@ -5,6 +5,7 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
+    main: ./cmd/k8stool
     goos:
       - linux
       - windows
@@ -45,16 +46,14 @@ changelog:
       - Merge branch
 
 brews:
-  - name: k8stool
-    homepage: "https://github.com/yourusername/k8stool"
-    description: "A command-line tool for managing Kubernetes resources"
-    tap:
+  - repository:
       owner: eniayomi
       name: homebrew-tap
+    homepage: "https://github.com/eniayomi/k8stool"
+    description: "A command-line tool for managing Kubernetes resources"
     commit_author:
       name: eniayomi
       email: oluwaseyieniayomi@gmail.com
-    folder: Formula
     install: |
       bin.install "k8stool"
     test: |
