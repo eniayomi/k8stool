@@ -2,7 +2,6 @@
 
 A command-line tool for managing Kubernetes resources with enhanced features and user-friendly output.
 
-![k8stool terminal demo](./images/k8stool.png)
 
 ## Installation
 

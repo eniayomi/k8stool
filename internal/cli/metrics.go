@@ -16,7 +16,7 @@ func getMetricsCmd() *cobra.Command {
 	var selector string
 
 	cmd := &cobra.Command{
-		Use:     "metrics (pods|nodes)",
+		Use:     "metrics (pods|nodes|<pod-name>)",
 		Aliases: []string{"top"},
 		Short:   "Show metrics for pods or nodes",
 		Args:    cobra.ExactArgs(1),
@@ -42,7 +42,16 @@ func getMetricsCmd() *cobra.Command {
 			case "nodes", "node", "no":
 				return client.GetNodeMetrics(selector)
 			default:
-				return fmt.Errorf("unsupported resource type: %s", resourceType)
+				// Debug line to verify namespace
+				fmt.Printf("Using namespace: %s\n", namespace)
+				// Try to get metrics for a specific pod - just pass the pod name directly
+				metrics, err := client.GetPodMetrics(namespace, resourceType) // Pass the pod name directly
+				if err != nil {
+					return fmt.Errorf("pod '%s' not found or error getting metrics: %v", resourceType, err)
+				}
+
+				// Since we're getting metrics for a specific pod, just return them
+				return printPodMetrics(metrics)
 			}
 		},
 	}
@@ -59,6 +68,11 @@ func printPodMetrics(metrics *k8s.PodMetrics) error {
 	defer w.Flush()
 
 	fmt.Fprintln(w, "NAMESPACE\tPOD\tCPU\tMEMORY")
-	// Add implementation for printing metrics
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		metrics.Namespace,
+		metrics.Name,
+		metrics.CPU,
+		metrics.Memory)
+
 	return nil
 }
