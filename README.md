@@ -65,26 +65,6 @@ go install github.com/eniayomi/k8stool
   k8stool get deploy -A               # List in all namespaces
   ```
 
-### Pod Information Display
-- ✅ Colored status output
-- ✅ Resource requests and limits
-- ✅ Volume and mount information
-- ✅ Node selector information
-- ✅ Container details
-- ✅ Pod labels
-- ⬜ Init container status
-- ⬜ Pod conditions
-- ⬜ Pod QoS class
-- ⬜ Security context
-- ⬜ Pod priority class
-
-### Filtering and Sorting
-- ✅ Filter pods by labels (`-l app=nginx`)
-- ✅ Filter pods by status (`-s Running`)
-- ✅ Sort by age/status/name (`--sort age`)
-- ✅ Reverse sort order (`--reverse`)
-- ✅ Namespace filtering (`-n kube-system`)
-- ✅ All namespaces view (`-A`)
 
 ## Usage Examples
 

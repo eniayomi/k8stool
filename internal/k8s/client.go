@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"text/tabwriter"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -55,16 +57,15 @@ type Namespace struct {
 type PodDetails struct {
 	Name         string
 	Namespace    string
-	NodeName     string
+	Node         string
 	Status       string
-	PodIP        string
-	CreatedAt    string
+	IP           string
+	CreationTime time.Time
 	Labels       map[string]string
-	Containers   []ContainerDetails
-	Events       []EventDetails
-	Volumes      []VolumeDetails
 	NodeSelector map[string]string
-	Tolerations  []corev1.Toleration
+	Containers   []ContainerInfo
+	Volumes      []Volume
+	Events       []Event
 }
 
 type ContainerDetails struct {
@@ -149,6 +150,43 @@ type ExecOptions struct {
 	Stdout  io.Writer
 	Stderr  io.Writer
 	TTY     bool
+}
+
+// Resource represents CPU or Memory
+type Resource struct {
+	CPU    string
+	Memory string
+}
+
+// Resources represents container resources
+type Resources struct {
+	Limits   Resource
+	Requests Resource
+}
+
+// ContainerInfo represents a container in a pod
+type ContainerInfo struct {
+	Name         string
+	Image        string
+	State        string
+	Ready        bool
+	RestartCount int32
+	Resources    Resources
+	VolumeMounts []VolumeMount
+}
+
+// Volume represents a pod volume
+type Volume struct {
+	Name   string
+	Type   string
+	Source string
+}
+
+// VolumeMount represents a container's volume mount
+type VolumeMount struct {
+	Name      string
+	MountPath string
+	ReadOnly  bool
 }
 
 func NewClient() (*Client, error) {
@@ -440,116 +478,90 @@ func (c *Client) DescribePod(namespace, name string) (*PodDetails, error) {
 		return nil, err
 	}
 
-	// Get pod events
-	events, err := c.clientset.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{
-		FieldSelector: fmt.Sprintf("involvedObject.name=%s", name),
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	details := &PodDetails{
 		Name:         pod.Name,
 		Namespace:    pod.Namespace,
-		NodeName:     pod.Spec.NodeName,
+		Node:         pod.Spec.NodeName,
 		Status:       string(pod.Status.Phase),
-		PodIP:        pod.Status.PodIP,
-		CreatedAt:    pod.CreationTimestamp.Format("2006-01-02 15:04:05"),
+		IP:           pod.Status.PodIP,
+		CreationTime: pod.CreationTimestamp.Time,
 		Labels:       pod.Labels,
 		NodeSelector: pod.Spec.NodeSelector,
-		Tolerations:  pod.Spec.Tolerations,
+		Containers:   make([]ContainerInfo, 0),
+		Volumes:      make([]Volume, 0),
 	}
 
-	// Get volumes
-	for _, volume := range pod.Spec.Volumes {
-		volumeDetail := VolumeDetails{
-			Name: volume.Name,
-		}
-
-		// Determine volume type and source
-		switch {
-		case volume.ConfigMap != nil:
-			volumeDetail.Type = "ConfigMap"
-			volumeDetail.Source = volume.ConfigMap.Name
-		case volume.Secret != nil:
-			volumeDetail.Type = "Secret"
-			volumeDetail.Source = volume.Secret.SecretName
-		case volume.PersistentVolumeClaim != nil:
-			volumeDetail.Type = "PVC"
-			volumeDetail.Source = volume.PersistentVolumeClaim.ClaimName
-		case volume.EmptyDir != nil:
-			volumeDetail.Type = "EmptyDir"
-			volumeDetail.Source = "N/A"
-		case volume.HostPath != nil:
-			volumeDetail.Type = "HostPath"
-			volumeDetail.Source = volume.HostPath.Path
-		default:
-			volumeDetail.Type = "Other"
-			volumeDetail.Source = "N/A"
-		}
-
-		details.Volumes = append(details.Volumes, volumeDetail)
-	}
-
-	// Get container details
-	for _, container := range pod.Spec.Containers {
-		var containerStatus *corev1.ContainerStatus
-		for i := range pod.Status.ContainerStatuses {
-			if pod.Status.ContainerStatuses[i].Name == container.Name {
-				containerStatus = &pod.Status.ContainerStatuses[i]
-				break
-			}
-		}
-
-		cd := ContainerDetails{
-			Name:  container.Name,
-			Image: container.Image,
+	// Add container details
+	for i, c := range pod.Spec.Containers {
+		containerStatus := pod.Status.ContainerStatuses[i]
+		container := ContainerInfo{
+			Name:         c.Name,
+			Image:        c.Image,
+			Ready:        containerStatus.Ready,
+			RestartCount: containerStatus.RestartCount,
+			Resources: Resources{
+				Limits: Resource{
+					CPU:    c.Resources.Limits.Cpu().String(),
+					Memory: c.Resources.Limits.Memory().String(),
+				},
+				Requests: Resource{
+					CPU:    c.Resources.Requests.Cpu().String(),
+					Memory: c.Resources.Requests.Memory().String(),
+				},
+			},
+			VolumeMounts: make([]VolumeMount, 0),
 		}
 
 		// Add volume mounts
-		for _, mount := range container.VolumeMounts {
-			cd.Mounts = append(cd.Mounts, MountDetails{
-				Name:      mount.Name,
-				MountPath: mount.MountPath,
-				ReadOnly:  mount.ReadOnly,
+		for _, vm := range c.VolumeMounts {
+			container.VolumeMounts = append(container.VolumeMounts, VolumeMount{
+				Name:      vm.Name,
+				MountPath: vm.MountPath,
+				ReadOnly:  vm.ReadOnly,
 			})
 		}
 
-		// Add resource requests and limits
-		cd.Resources = ResourceDetails{
-			Requests: ResourceQuantity{
-				CPU:    container.Resources.Requests.Cpu().String(),
-				Memory: container.Resources.Requests.Memory().String(),
-			},
-			Limits: ResourceQuantity{
-				CPU:    container.Resources.Limits.Cpu().String(),
-				Memory: container.Resources.Limits.Memory().String(),
-			},
+		// Determine container state
+		if containerStatus.State.Running != nil {
+			container.State = "Running"
+		} else if containerStatus.State.Waiting != nil {
+			container.State = "Waiting"
+		} else if containerStatus.State.Terminated != nil {
+			container.State = "Terminated"
 		}
 
-		if containerStatus != nil {
-			cd.Ready = containerStatus.Ready
-			cd.RestartCount = containerStatus.RestartCount
-			cd.State = getContainerState(containerStatus.State)
-			cd.LastState = getContainerState(containerStatus.LastTerminationState)
-		}
-
-		// Get container ports
-		for _, port := range container.Ports {
-			cd.Ports = append(cd.Ports, fmt.Sprintf("%d/%s", port.ContainerPort, port.Protocol))
-		}
-
-		details.Containers = append(details.Containers, cd)
+		details.Containers = append(details.Containers, container)
 	}
 
-	// Get recent events
-	for _, event := range events.Items {
-		details.Events = append(details.Events, EventDetails{
-			Time:    event.LastTimestamp.Format("2006-01-02 15:04:05"),
-			Type:    event.Type,
-			Message: event.Message,
-		})
+	// Add volume details
+	for _, v := range pod.Spec.Volumes {
+		volume := Volume{
+			Name: v.Name,
+		}
+
+		if v.ConfigMap != nil {
+			volume.Type = "ConfigMap"
+			volume.Source = v.ConfigMap.Name
+		} else if v.Secret != nil {
+			volume.Type = "Secret"
+			volume.Source = v.Secret.SecretName
+		} else if v.PersistentVolumeClaim != nil {
+			volume.Type = "PVC"
+			volume.Source = v.PersistentVolumeClaim.ClaimName
+		} else if v.EmptyDir != nil {
+			volume.Type = "EmptyDir"
+			volume.Source = "N/A"
+		}
+
+		details.Volumes = append(details.Volumes, volume)
 	}
+
+	// Get events
+	events, err := c.GetPodEvents(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	details.Events = events
 
 	return details, nil
 }
@@ -670,4 +682,333 @@ func (c *Client) ExecInPod(namespace, podName, containerName string, opts ExecOp
 		Stderr: opts.Stderr,
 		Tty:    opts.TTY,
 	})
+}
+
+func (c *Client) DescribeDeployment(namespace, name string) error {
+	deployment, err := c.clientset.AppsV1().Deployments(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	defer w.Flush()
+
+	// Basic Info
+	fmt.Fprintf(w, "Name:\t%s\n", deployment.Name)
+	fmt.Fprintf(w, "Namespace:\t%s\n", deployment.Namespace)
+	fmt.Fprintf(w, "CreationTimestamp:\t%s\n", deployment.CreationTimestamp.Format(time.RFC3339))
+
+	// Labels
+	fmt.Fprintf(w, "Labels:\t")
+	if len(deployment.Labels) == 0 {
+		fmt.Fprintf(w, "<none>")
+	} else {
+		first := true
+		for k, v := range deployment.Labels {
+			if !first {
+				fmt.Fprintf(w, ", ")
+			}
+			fmt.Fprintf(w, "%s=%s", k, v)
+			first = false
+		}
+	}
+	fmt.Fprintf(w, "\n")
+
+	// Annotations
+	fmt.Fprintf(w, "Annotations:\t")
+	if len(deployment.Annotations) == 0 {
+		fmt.Fprintf(w, "<none>")
+	} else {
+		first := true
+		for k, v := range deployment.Annotations {
+			if !first {
+				fmt.Fprintf(w, ", ")
+			}
+			fmt.Fprintf(w, "%s=%s", k, v)
+			first = false
+		}
+	}
+	fmt.Fprintf(w, "\n")
+
+	// Selector
+	fmt.Fprintf(w, "Selector:\t")
+	if deployment.Spec.Selector == nil {
+		fmt.Fprintf(w, "<none>")
+	} else {
+		first := true
+		for k, v := range deployment.Spec.Selector.MatchLabels {
+			if !first {
+				fmt.Fprintf(w, ", ")
+			}
+			fmt.Fprintf(w, "%s=%s", k, v)
+			first = false
+		}
+	}
+	fmt.Fprintf(w, "\n")
+
+	// Replicas
+	fmt.Fprintf(w, "Replicas:\t%d desired | %d updated | %d total | %d available | %d unavailable\n",
+		*deployment.Spec.Replicas,
+		deployment.Status.UpdatedReplicas,
+		deployment.Status.Replicas,
+		deployment.Status.AvailableReplicas,
+		deployment.Status.UnavailableReplicas)
+
+	// Strategy
+	fmt.Fprintf(w, "Strategy:\t%s\n", string(deployment.Spec.Strategy.Type))
+	if deployment.Spec.Strategy.RollingUpdate != nil {
+		fmt.Fprintf(w, "RollingUpdate Strategy:\tmax unavailable: %s, max surge: %s\n",
+			deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.String(),
+			deployment.Spec.Strategy.RollingUpdate.MaxSurge.String())
+	}
+
+	// Pod Template
+	fmt.Fprintf(w, "\nPod Template:\n")
+	fmt.Fprintf(w, "  Labels:\t")
+	if len(deployment.Spec.Template.Labels) == 0 {
+		fmt.Fprintf(w, "<none>")
+	} else {
+		first := true
+		for k, v := range deployment.Spec.Template.Labels {
+			if !first {
+				fmt.Fprintf(w, ", ")
+			}
+			fmt.Fprintf(w, "%s=%s", k, v)
+			first = false
+		}
+	}
+	fmt.Fprintf(w, "\n")
+
+	// Node Selector
+	fmt.Fprintf(w, "  Node Selector:\t")
+	if len(deployment.Spec.Template.Spec.NodeSelector) == 0 {
+		fmt.Fprintf(w, "<none>")
+	} else {
+		first := true
+		for k, v := range deployment.Spec.Template.Spec.NodeSelector {
+			if !first {
+				fmt.Fprintf(w, ", ")
+			}
+			fmt.Fprintf(w, "%s=%s", k, v)
+			first = false
+		}
+	}
+	fmt.Fprintf(w, "\n")
+
+	// Containers
+	fmt.Fprintf(w, "\nContainers:\n")
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		fmt.Fprintf(w, "  %s:\n", container.Name)
+		fmt.Fprintf(w, "    Image:\t%s\n", container.Image)
+
+		// Ports
+		fmt.Fprintf(w, "    Ports:\t")
+		if len(container.Ports) == 0 {
+			fmt.Fprintf(w, "<none>")
+		} else {
+			first := true
+			for _, port := range container.Ports {
+				if !first {
+					fmt.Fprintf(w, ", ")
+				}
+				fmt.Fprintf(w, "%d/%s", port.ContainerPort, port.Protocol)
+				first = false
+			}
+		}
+		fmt.Fprintf(w, "\n")
+
+		// Resources
+		fmt.Fprintf(w, "    Limits:\t")
+		if len(container.Resources.Limits) == 0 {
+			fmt.Fprintf(w, "<none>")
+		} else {
+			first := true
+			for k, v := range container.Resources.Limits {
+				if !first {
+					fmt.Fprintf(w, ", ")
+				}
+				fmt.Fprintf(w, "%s=%s", k, v.String())
+				first = false
+			}
+		}
+		fmt.Fprintf(w, "\n")
+
+		fmt.Fprintf(w, "    Requests:\t")
+		if len(container.Resources.Requests) == 0 {
+			fmt.Fprintf(w, "<none>")
+		} else {
+			first := true
+			for k, v := range container.Resources.Requests {
+				if !first {
+					fmt.Fprintf(w, ", ")
+				}
+				fmt.Fprintf(w, "%s=%s", k, v.String())
+				first = false
+			}
+		}
+		fmt.Fprintf(w, "\n")
+
+		// Volume Mounts
+		fmt.Fprintf(w, "    Volume Mounts:\t")
+		if len(container.VolumeMounts) == 0 {
+			fmt.Fprintf(w, "<none>")
+		} else {
+			fmt.Fprintf(w, "\n")
+			for _, vm := range container.VolumeMounts {
+				ro := ""
+				if vm.ReadOnly {
+					ro = " (ro)"
+				}
+				fmt.Fprintf(w, "      %s:\t%s%s\n", vm.Name, vm.MountPath, ro)
+			}
+		}
+		fmt.Fprintf(w, "\n")
+	}
+
+	// Volumes
+	fmt.Fprintf(w, "  Volumes:\t")
+	if len(deployment.Spec.Template.Spec.Volumes) == 0 {
+		fmt.Fprintf(w, "<none>")
+	} else {
+		fmt.Fprintf(w, "\n")
+		for _, v := range deployment.Spec.Template.Spec.Volumes {
+			fmt.Fprintf(w, "    %s:\n", v.Name)
+			if v.ConfigMap != nil {
+				fmt.Fprintf(w, "      ConfigMap:\t%s\n", v.ConfigMap.Name)
+			} else if v.Secret != nil {
+				fmt.Fprintf(w, "      Secret:\t%s\n", v.Secret.SecretName)
+			} else if v.PersistentVolumeClaim != nil {
+				fmt.Fprintf(w, "      PVC:\t%s\n", v.PersistentVolumeClaim.ClaimName)
+			} else if v.EmptyDir != nil {
+				fmt.Fprintf(w, "      EmptyDir:\t{}\n")
+			}
+		}
+	}
+	fmt.Fprintf(w, "\n")
+
+	// Conditions
+	fmt.Fprintf(w, "\nConditions:\n")
+	fmt.Fprintf(w, "  Type\tStatus\tLastUpdateTime\tLastTransitionTime\tReason\tMessage\n")
+	for _, condition := range deployment.Status.Conditions {
+		fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%s\t%s\n",
+			condition.Type,
+			condition.Status,
+			condition.LastUpdateTime.Format(time.RFC3339),
+			condition.LastTransitionTime.Format(time.RFC3339),
+			condition.Reason,
+			condition.Message)
+	}
+
+	return nil
+}
+
+func (p *PodDetails) Print(w io.Writer) error {
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	defer tw.Flush()
+
+	fmt.Fprintf(tw, "Name:\t%s\n", p.Name)
+	fmt.Fprintf(tw, "Namespace:\t%s\n", p.Namespace)
+	fmt.Fprintf(tw, "Node:\t%s\n", p.Node)
+	fmt.Fprintf(tw, "Status:\t%s\n", p.Status)
+	fmt.Fprintf(tw, "IP:\t%s\n", p.IP)
+	fmt.Fprintf(tw, "Created:\t%s\n", p.CreationTime.Format(time.RFC3339))
+
+	// Labels
+	fmt.Fprintf(tw, "\nLabels:\t")
+	if len(p.Labels) == 0 {
+		fmt.Fprintf(tw, "<none>")
+	} else {
+		first := true
+		for k, v := range p.Labels {
+			if !first {
+				fmt.Fprintf(tw, ", ")
+			}
+			fmt.Fprintf(tw, "%s=%s", k, v)
+			first = false
+		}
+	}
+	fmt.Fprintf(tw, "\n")
+
+	// Node Selector
+	fmt.Fprintf(tw, "Node Selector:\t")
+	if len(p.NodeSelector) == 0 {
+		fmt.Fprintf(tw, "<none>")
+	} else {
+		first := true
+		for k, v := range p.NodeSelector {
+			if !first {
+				fmt.Fprintf(tw, ", ")
+			}
+			fmt.Fprintf(tw, "%s=%s", k, v)
+			first = false
+		}
+	}
+	fmt.Fprintf(tw, "\n")
+
+	// Containers
+	fmt.Fprintf(tw, "\nContainers:\n")
+	for _, c := range p.Containers {
+		fmt.Fprintf(tw, "  %s:\n", c.Name)
+		fmt.Fprintf(tw, "    Image:\t%s\n", c.Image)
+		fmt.Fprintf(tw, "    State:\t%s\n", c.State)
+		fmt.Fprintf(tw, "    Ready:\t%v\n", c.Ready)
+		fmt.Fprintf(tw, "    Restarts:\t%d\n", c.RestartCount)
+
+		// Resources
+		fmt.Fprintf(tw, "    Limits:\t")
+		if c.Resources.Limits.CPU == "" && c.Resources.Limits.Memory == "" {
+			fmt.Fprintf(tw, "<none>\n")
+		} else {
+			fmt.Fprintf(tw, "\n")
+			if c.Resources.Limits.CPU != "" {
+				fmt.Fprintf(tw, "      CPU:\t%s\n", c.Resources.Limits.CPU)
+			}
+			if c.Resources.Limits.Memory != "" {
+				fmt.Fprintf(tw, "      Memory:\t%s\n", c.Resources.Limits.Memory)
+			}
+		}
+
+		fmt.Fprintf(tw, "    Requests:\t")
+		if c.Resources.Requests.CPU == "" && c.Resources.Requests.Memory == "" {
+			fmt.Fprintf(tw, "<none>\n")
+		} else {
+			fmt.Fprintf(tw, "\n")
+			if c.Resources.Requests.CPU != "" {
+				fmt.Fprintf(tw, "      CPU:\t%s\n", c.Resources.Requests.CPU)
+			}
+			if c.Resources.Requests.Memory != "" {
+				fmt.Fprintf(tw, "      Memory:\t%s\n", c.Resources.Requests.Memory)
+			}
+		}
+
+		// Volume Mounts
+		fmt.Fprintf(tw, "    Volume Mounts:\t")
+		if len(c.VolumeMounts) == 0 {
+			fmt.Fprintf(tw, "<none>\n")
+		} else {
+			fmt.Fprintf(tw, "\n")
+			for _, vm := range c.VolumeMounts {
+				ro := ""
+				if vm.ReadOnly {
+					ro = " (ro)"
+				}
+				fmt.Fprintf(tw, "      %s:\t%s%s\n", vm.Name, vm.MountPath, ro)
+			}
+		}
+	}
+
+	// Volumes
+	fmt.Fprintf(tw, "\nVolumes:\t")
+	if len(p.Volumes) == 0 {
+		fmt.Fprintf(tw, "<none>\n")
+	} else {
+		fmt.Fprintf(tw, "\n")
+		for _, v := range p.Volumes {
+			fmt.Fprintf(tw, "  %s:\n", v.Name)
+			fmt.Fprintf(tw, "    Type:\t%s\n", v.Type)
+			fmt.Fprintf(tw, "    Source:\t%s\n", v.Source)
+		}
+	}
+
+	return nil
 }
