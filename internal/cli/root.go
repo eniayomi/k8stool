@@ -37,4 +37,5 @@ func init() {
 	rootCmd.AddCommand(getMetricsCmd())
 	rootCmd.AddCommand(getExecCmd())
 	rootCmd.AddCommand(getPortForwardCmd())
+	rootCmd.AddCommand(getVersionCmd())
 }
