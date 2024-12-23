@@ -7,6 +7,7 @@ import (
 	"io"
 	"k8stool/pkg/utils"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -59,6 +60,8 @@ type Deployment struct {
 	AvailableReplicas int32
 	Age               time.Duration
 	Status            string
+	Metrics           *PodMetrics
+	Selector          *metav1.LabelSelector
 }
 
 type Context struct {
@@ -423,6 +426,7 @@ func (c *Client) ListDeployments(namespace string, allNamespaces bool, labelSele
 			AvailableReplicas: d.Status.AvailableReplicas,
 			Age:               time.Since(d.CreationTimestamp.Time),
 			Status:            getDeploymentStatus(d),
+			Selector:          d.Spec.Selector,
 		}
 		result = append(result, deployment)
 	}
@@ -1431,4 +1435,77 @@ func (d DeploymentDetails) Print(w io.Writer, details *Details) error {
 	}
 
 	return nil
+}
+
+// AddDeploymentMetrics adds metrics information to deployments
+func (c *Client) AddDeploymentMetrics(deployments []Deployment) error {
+	// Create a map to store deployment pod metrics
+	deploymentMetrics := make(map[string]*PodMetrics)
+
+	// For each deployment, get its pods and their metrics
+	for _, deployment := range deployments {
+		// Get pods for this deployment using label selector
+		pods, err := c.clientset.CoreV1().Pods(deployment.Namespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(deployment.Selector),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get pods for deployment %s: %v", deployment.Name, err)
+		}
+
+		var totalCPU, totalMemory int64
+		for _, pod := range pods.Items {
+			// Get metrics for this pod
+			podMetrics, err := c.metricsClient.MetricsV1beta1().PodMetricses(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+			if err != nil {
+				continue // Skip if we can't get metrics for this pod
+			}
+
+			// Sum up CPU and Memory for all containers in the pod
+			for _, container := range podMetrics.Containers {
+				totalCPU += container.Usage.Cpu().MilliValue()
+				totalMemory += container.Usage.Memory().Value()
+			}
+		}
+
+		// Store the aggregated metrics
+		key := fmt.Sprintf("%s/%s", deployment.Namespace, deployment.Name)
+		deploymentMetrics[key] = &PodMetrics{
+			CPU:    fmt.Sprintf("%dm", totalCPU),
+			Memory: formatBytes(totalMemory),
+		}
+	}
+
+	// Assign metrics to deployments
+	for i := range deployments {
+		key := fmt.Sprintf("%s/%s", deployments[i].Namespace, deployments[i].Name)
+		if metrics, ok := deploymentMetrics[key]; ok {
+			deployments[i].Metrics = metrics
+		} else {
+			deployments[i].Metrics = &PodMetrics{
+				CPU:    "0",
+				Memory: "0",
+			}
+		}
+	}
+
+	return nil
+}
+
+// Helper function to parse memory values
+func parseMemoryValue(memory string) int64 {
+	// Remove units (Mi, Gi, etc.)
+	numStr := strings.TrimRight(memory, "BMiKG")
+	value, _ := strconv.ParseInt(numStr, 10, 64)
+
+	// Convert to bytes based on unit
+	switch {
+	case strings.HasSuffix(memory, "Gi"):
+		return value * 1024 * 1024 * 1024
+	case strings.HasSuffix(memory, "Mi"):
+		return value * 1024 * 1024
+	case strings.HasSuffix(memory, "Ki"):
+		return value * 1024
+	default:
+		return value
+	}
 }

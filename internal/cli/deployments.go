@@ -18,6 +18,7 @@ func getDeploymentsCmd() *cobra.Command {
 	var labelSelector string
 	var sortBy string
 	var reverse bool
+	var showMetrics bool
 
 	cmd := &cobra.Command{
 		Use:     "deployments",
@@ -44,7 +45,14 @@ func getDeploymentsCmd() *cobra.Command {
 				return err
 			}
 
-			return printDeployments(deployments)
+			// If metrics flag is set, add metrics information
+			if showMetrics {
+				if err := client.AddDeploymentMetrics(deployments); err != nil {
+					return fmt.Errorf("failed to get metrics: %v", err)
+				}
+			}
+
+			return printDeployments(deployments, showMetrics)
 		},
 	}
 
@@ -53,6 +61,7 @@ func getDeploymentsCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by (name, status, age)")
 	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse sort order")
+	cmd.Flags().BoolVar(&showMetrics, "metrics", false, "Show resource metrics")
 
 	return cmd
 }
@@ -88,7 +97,7 @@ func sortDeployments(deployments []k8s.Deployment, sortBy string, reverse bool) 
 	return nil
 }
 
-func printDeployments(deployments []k8s.Deployment) error {
+func printDeployments(deployments []k8s.Deployment, showMetrics bool) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()
 
@@ -104,10 +113,19 @@ func printDeployments(deployments []k8s.Deployment) error {
 		}
 	}
 
+	// Print header based on what columns we're showing
 	if showNamespace {
-		fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tSTATUS")
+		if showMetrics {
+			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tSTATUS\tCPU\tMEMORY")
+		} else {
+			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tSTATUS")
+		}
 	} else {
-		fmt.Fprintln(w, "NAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tSTATUS")
+		if showMetrics {
+			fmt.Fprintln(w, "NAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tSTATUS\tCPU\tMEMORY")
+		} else {
+			fmt.Fprintln(w, "NAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tSTATUS")
+		}
 	}
 
 	for _, d := range deployments {
@@ -115,13 +133,27 @@ func printDeployments(deployments []k8s.Deployment) error {
 		age := utils.FormatDuration(d.Age)
 
 		if showNamespace {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t%s\t%s\n",
-				d.Namespace, d.Name, ready, d.UpdatedReplicas,
-				d.AvailableReplicas, age, d.Status)
+			if showMetrics {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t%s\t%s\t%s\t%s\n",
+					d.Namespace, d.Name, ready, d.UpdatedReplicas,
+					d.AvailableReplicas, age, d.Status,
+					d.Metrics.CPU, d.Metrics.Memory)
+			} else {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t%s\t%s\n",
+					d.Namespace, d.Name, ready, d.UpdatedReplicas,
+					d.AvailableReplicas, age, d.Status)
+			}
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\t%s\n",
-				d.Name, ready, d.UpdatedReplicas,
-				d.AvailableReplicas, age, d.Status)
+			if showMetrics {
+				fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\t%s\t%s\t%s\n",
+					d.Name, ready, d.UpdatedReplicas,
+					d.AvailableReplicas, age, d.Status,
+					d.Metrics.CPU, d.Metrics.Memory)
+			} else {
+				fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\t%s\n",
+					d.Name, ready, d.UpdatedReplicas,
+					d.AvailableReplicas, age, d.Status)
+			}
 		}
 	}
 
