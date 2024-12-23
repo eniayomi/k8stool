@@ -7,7 +7,6 @@ import (
 	"io"
 	"k8stool/pkg/utils"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -662,19 +661,6 @@ func (c *Client) DescribePod(namespace, name string) (*PodDetails, error) {
 	}, nil
 }
 
-func getContainerState(state corev1.ContainerState) string {
-	if state.Running != nil {
-		return "Running"
-	}
-	if state.Waiting != nil {
-		return fmt.Sprintf("Waiting (%s)", state.Waiting.Reason)
-	}
-	if state.Terminated != nil {
-		return fmt.Sprintf("Terminated (%s)", state.Terminated.Reason)
-	}
-	return ""
-}
-
 func (c *Client) GetPodMetrics(namespace, podName string) (*PodMetrics, error) {
 	metrics, err := c.metricsClient.MetricsV1beta1().PodMetricses(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
@@ -866,7 +852,7 @@ func (c *Client) ExecInPod(namespace, podName, containerName string, opts ExecOp
 		TerminalSizeQueue: nil,
 	}
 
-	return exec.Stream(streamOptions)
+	return exec.StreamWithContext(context.Background(), streamOptions)
 }
 
 func (c *Client) DescribeDeployment(namespace, name string) (*DeploymentDetails, error) {
@@ -1489,23 +1475,4 @@ func (c *Client) AddDeploymentMetrics(deployments []Deployment) error {
 	}
 
 	return nil
-}
-
-// Helper function to parse memory values
-func parseMemoryValue(memory string) int64 {
-	// Remove units (Mi, Gi, etc.)
-	numStr := strings.TrimRight(memory, "BMiKG")
-	value, _ := strconv.ParseInt(numStr, 10, 64)
-
-	// Convert to bytes based on unit
-	switch {
-	case strings.HasSuffix(memory, "Gi"):
-		return value * 1024 * 1024 * 1024
-	case strings.HasSuffix(memory, "Mi"):
-		return value * 1024 * 1024
-	case strings.HasSuffix(memory, "Ki"):
-		return value * 1024
-	default:
-		return value
-	}
 }

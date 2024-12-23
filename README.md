@@ -2,10 +2,58 @@
 
 A command-line tool for managing Kubernetes resources with enhanced features and user-friendly output.
 
-
 ## Installation
 
-[Add installation instructions here]
+### Using Homebrew (macOS/Linux)
+```bash
+brew tap eniayomi/k8stool
+brew install k8stool
+```
+
+### Using Binary Releases
+Download the latest binary for your platform from the [releases page](https://github.com/eniayomi/k8stool/releases).
+
+#### Linux
+```bash
+curl -LO https://github.com/eniayomi/k8stool/releases/download/v0.0.5/k8stool_Linux_arm64.tar.gz
+tar xzf k8stool_Linux_arm64.tar.gz
+cd k8stool_Linux_arm64
+chmod +x k8stool
+sudo mv k8stool /usr/local/bin/k8stool
+```
+
+#### macOS
+```bash
+curl -LO https://github.com/eniayomi/k8stool/releases/download/v0.0.5/k8stool_Darwin_arm64.tar.gz
+tar xzf k8stool_Darwin_arm64.tar.gz
+cd k8stool_Darwin_arm64
+chmod +x k8stool
+sudo mv k8stool /usr/local/bin/k8stool
+```
+
+#### Windows
+```bash
+# Download the zip file
+curl -LO https://github.com/eniayomi/k8stool/releases/download/v0.0.5/k8stool_Windows_x86_64.zip
+
+# Extract the executable
+Expand-Archive -Path k8stool_Windows_x86_64.zip -DestinationPath k8stool
+
+# Move to a directory in your PATH (example using C:\Windows\System32)
+move k8stool\k8stool.exe C:\Windows\System32\k8stool.exe
+```
+
+Alternatively, you can:
+1. Download `k8stool_Windows_x86_64.zip` from the [releases page](https://github.com/eniayomi/k8stool/releases) or [directly](https://github.com/eniayomi/k8stool/releases/download/v0.0.5/k8stool_Windows_x86_64.zip)
+2. Extract the ZIP file
+3. Move `k8stool.exe` to a directory in your PATH
+
+### From Source
+```bash
+git clone https://github.com/eniayomi/k8stool.git
+cd k8stool
+go install ./cmd/k8stool
+```
 
 ## Features
 
@@ -136,7 +184,7 @@ A command-line tool for managing Kubernetes resources with enhanced features and
 
 - Kubernetes cluster with metrics-server installed (for metrics feature)
 - kubectl configured with cluster access
-- Go 1.19 or later
+- Go 1.21 or later
 
 ## Contributing
 

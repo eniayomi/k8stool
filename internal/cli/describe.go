@@ -68,10 +68,3 @@ Example: k8stool describe pod nginx-pod
 
 	return cmd
 }
-
-func getResourceValue(value string) string {
-	if value == "" || value == "0" {
-		return "<none>"
-	}
-	return value
-}

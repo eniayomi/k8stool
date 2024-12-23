@@ -1,3 +1,4 @@
 .air.toml
 ./tmp
 tmp/
+.vscode/

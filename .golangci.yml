@@ -1,0 +1,19 @@
+run:
+  deadline: 5m
+  fast: true
+
+linters:
+  enable:
+    - gofmt
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+
+linters-settings:
+  govet:
+    shadow: true
+  golint:
+    min-confidence: 0
