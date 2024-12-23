@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/eniayomi/k8stool/internal/cli"
+	"k8stool/internal/cli"
 )
 
 func main() {
@@ -12,4 +12,4 @@ func main() {
 		log.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-} 
+}
