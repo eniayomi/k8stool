@@ -82,6 +82,56 @@ A command-line tool for managing Kubernetes resources with enhanced features and
   k8stool describe deploy nginx       # Short alias
   ```
 
+### Resource Metrics
+- ✅ View resource utilization metrics
+  ```bash
+  k8stool metrics pods                # Show metrics for all pods
+  k8stool metrics nodes               # Show metrics for all nodes
+  k8stool metrics <pod-name>          # Show metrics for specific pod
+  k8stool get pods --metrics          # Show pod metrics in pod list
+  k8stool get deploy --metrics        # Show aggregated deployment metrics
+  ```
+  - Real-time CPU and Memory usage
+  - Supports both pods and deployments
+  - Requires metrics-server installed
+
+### Context Management
+- ✅ Switch between Kubernetes contexts
+  ```bash
+  k8stool ctx current                # Show curret context
+  k8stool context current            # Show curret context
+  k8stool ctx <context-name>         # Switch to specific context
+  k8stool context <context-name>     # Switch to specific context (long form)
+  k8stool ctx switch                 # Interactive mode
+  k8stool context switch             # Interactive mode
+  ```
+  - Interactive mode:
+    - Lists all available contexts
+    - Shows current context highlighted
+    - Arrow key navigation
+    - Enter to select context
+  - Shows current context
+  - Easy context switching
+  - Displays associated clusters
+
+### Namespace Management
+- ✅ Switch between namespaces
+  ```bash
+  k8stool ns                         # show current namespace
+  k8stool namespace                  # show current namespace
+  k8stool ns <namespace-name>        # Switch to specific namespace
+  k8stool namespace <namespace-name> # Switch to specific namespace (long form)
+  k8stool ns -i                      # Switch to specific namespace
+  k8stool namespace -i               # Switch to specific namespace (long form)
+  ```
+  - Interactive mode:
+    - Lists all available namespaces
+    - Shows current namespace highlighted
+    - Arrow key navigation
+    - Enter to select namespace
+  - Shows current namespace
+  - Easy namespace switching
+
 ## Requirements
 
 - Kubernetes cluster with metrics-server installed (for metrics feature)
