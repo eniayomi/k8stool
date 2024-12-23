@@ -4,6 +4,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Add these variables at package level
+var (
+	version string
+	commit  string
+	date    string
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "k8stool",
 	Short: "K8sTool is a CLI tool for managing Kubernetes clusters",
@@ -11,7 +18,11 @@ var rootCmd = &cobra.Command{
 allowing you to view pods, logs, deployments, and more.`,
 }
 
-func Execute() error {
+// Update Execute to accept version info
+func Execute(v, c, d string) error {
+	version = v
+	commit = c
+	date = d
 	return rootCmd.Execute()
 }
 
@@ -37,5 +48,5 @@ func init() {
 	rootCmd.AddCommand(getMetricsCmd())
 	rootCmd.AddCommand(getExecCmd())
 	rootCmd.AddCommand(getPortForwardCmd())
-	rootCmd.AddCommand(getVersionCmd())
+	rootCmd.AddCommand(getVersionCmd(version, commit, date))
 }

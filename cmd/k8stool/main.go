@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 
 	"k8stool/internal/cli"
@@ -14,8 +14,8 @@ var (
 )
 
 func main() {
-	if err := cli.Execute(); err != nil {
-		log.Printf("Error: %v\n", err)
+	if err := cli.Execute(version, commit, date); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
