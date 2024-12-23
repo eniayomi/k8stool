@@ -14,6 +14,7 @@ go install github.com/eniayomi/k8stool
 - ✅ List pods with detailed status
   ```bash
   k8stool get pods                    # List pods in default namespace
+  k8stool get po                      # Short alias for pods
   k8stool get pods -n kube-system     # List pods in specific namespace
   k8stool get pods -A                 # List pods in all namespaces
   k8stool get pods --metrics          # Show CPU/Memory usage
@@ -21,15 +22,38 @@ go install github.com/eniayomi/k8stool
   k8stool get pods -s Running         # Filter by status
   k8stool get pods --sort age         # Sort by age (oldest first)
   k8stool get pods --sort age --reverse # Sort by age (newest first)
+  k8stool get pods --sort name        # Sort by name
+  k8stool get pods --sort status      # Sort by status
   ```
-- ✅ Describe pods with comprehensive information
+
+### Pod Events
+- ✅ Show pod events
   ```bash
-  k8stool describe pod <pod-name>
-  k8stool describe pod <pod-name> -n <namespace>
+  k8stool get events nginx-pod        # Show events for a pod
+  k8stool get ev nginx-pod            # Short alias for events
   ```
-- ✅ Show pod metrics (CPU/Memory usage)
+
+### Pod Logs
+- ✅ View and follow container logs
   ```bash
-  k8stool get pods --metrics
+  k8stool logs nginx-pod              # View pod logs
+  k8stool logs nginx-pod -f           # Follow log output
+  k8stool logs nginx-pod -p           # Show previous container logs
+  k8stool logs nginx-pod --tail 100   # Show last 100 lines
+  k8stool logs nginx-pod -c nginx     # Show specific container logs
+  k8stool logs nginx-pod --since 1h   # Show logs from last hour
+  k8stool logs nginx-pod --since 5m   # Show logs from last 5 minutes
+  k8stool logs nginx-pod --since-time "2024-01-20T15:04:05Z"  # Show logs since specific time
+  ```
+
+### Pod Exec
+- ✅ Execute commands in containers
+  ```bash
+  k8stool exec nginx-pod              # Start a shell (tries bash, falls back to sh)
+  k8stool exec nginx-pod bash         # Start bash shell
+  k8stool exec nginx-pod sh           # Start sh shell
+  k8stool exec nginx-pod -- ls /app   # Run specific command
+  k8stool exec nginx-pod -c nginx     # Execute in specific container
   ```
 
 ### Deployment Management

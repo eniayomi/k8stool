@@ -36,3 +36,14 @@ func ColorizeStatus(status string) string {
 		return status
 	}
 }
+
+func ColorizeEventType(eventType string) string {
+	switch eventType {
+	case "Normal":
+		return Green(eventType)
+	case "Warning":
+		return Yellow(eventType)
+	default:
+		return eventType
+	}
+}

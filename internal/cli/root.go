@@ -26,6 +26,7 @@ func init() {
 	// Add resource commands to the 'get' command
 	getCmd.AddCommand(getPodsCmd())
 	getCmd.AddCommand(getDeploymentsCmd())
+	getCmd.AddCommand(getEventsCmd())
 
 	// Add commands to root
 	rootCmd.AddCommand(getCmd)
@@ -34,4 +35,5 @@ func init() {
 	rootCmd.AddCommand(getNamespaceCmd())
 	rootCmd.AddCommand(getDescribeCmd())
 	rootCmd.AddCommand(getMetricsCmd())
+	rootCmd.AddCommand(getExecCmd())
 }

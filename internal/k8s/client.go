@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -10,8 +9,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 	metricsv1beta1 "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
@@ -29,6 +30,7 @@ type Pod struct {
 	Restarts   int32
 	Age        time.Duration
 	Controller string
+	Containers []Container
 }
 
 type Deployment struct {
@@ -118,6 +120,35 @@ type ContainerMetrics struct {
 	Name   string
 	CPU    string
 	Memory string
+}
+
+type Event struct {
+	LastSeen time.Duration
+	Type     string
+	Reason   string
+	Object   string
+	Message  string
+}
+
+type LogOptions struct {
+	Follow       bool
+	Previous     bool
+	TailLines    int64
+	Writer       io.Writer
+	SinceTime    *time.Time
+	SinceSeconds *int64
+}
+
+type Container struct {
+	Name string
+}
+
+type ExecOptions struct {
+	Command []string
+	Stdin   io.Reader
+	Stdout  io.Writer
+	Stderr  io.Writer
+	TTY     bool
 }
 
 func NewClient() (*Client, error) {
@@ -217,20 +248,31 @@ func (c *Client) ListPods(namespace, labelSelector string) ([]Pod, error) {
 	return podList, nil
 }
 
-func (c *Client) GetPodLogs(podName, namespace string) (string, error) {
-	req := c.clientset.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{})
-	podLogs, err := req.Stream(context.TODO())
-	if err != nil {
-		return "", err
+func (c *Client) GetPodLogs(namespace, podName, containerName string, opts LogOptions) error {
+	podLogOpts := &corev1.PodLogOptions{
+		Container:    containerName,
+		Follow:       opts.Follow,
+		Previous:     opts.Previous,
+		SinceSeconds: opts.SinceSeconds,
 	}
-	defer podLogs.Close()
 
-	buf := new(bytes.Buffer)
-	_, err = io.Copy(buf, podLogs)
-	if err != nil {
-		return "", err
+	if opts.SinceTime != nil {
+		podLogOpts.SinceTime = &metav1.Time{Time: *opts.SinceTime}
 	}
-	return buf.String(), nil
+
+	if opts.TailLines >= 0 {
+		podLogOpts.TailLines = &opts.TailLines
+	}
+
+	req := c.clientset.CoreV1().Pods(namespace).GetLogs(podName, podLogOpts)
+	stream, err := req.Stream(context.TODO())
+	if err != nil {
+		return fmt.Errorf("error opening stream: %v", err)
+	}
+	defer stream.Close()
+
+	_, err = io.Copy(opts.Writer, stream)
+	return err
 }
 
 func (c *Client) ListDeployments(namespace string) ([]Deployment, error) {
@@ -555,4 +597,77 @@ func (c *Client) GetPodMetrics(namespace, podName string) (*PodMetrics, error) {
 	podMetrics.Memory = fmt.Sprintf("%dMi", totalMemory)
 
 	return podMetrics, nil
+}
+
+func (c *Client) GetPodEvents(namespace, podName string) ([]Event, error) {
+	selector := fmt.Sprintf("involvedObject.kind=Pod,involvedObject.name=%s", podName)
+	events, err := c.clientset.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{
+		FieldSelector: selector,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var eventList []Event
+	for _, event := range events.Items {
+		lastSeen := time.Since(event.LastTimestamp.Time)
+		eventList = append(eventList, Event{
+			LastSeen: lastSeen,
+			Type:     event.Type,
+			Reason:   event.Reason,
+			Object:   fmt.Sprintf("Pod/%s", event.InvolvedObject.Name),
+			Message:  event.Message,
+		})
+	}
+
+	return eventList, nil
+}
+
+func (c *Client) GetPod(namespace, name string) (*Pod, error) {
+	pod, err := c.clientset.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	containers := make([]Container, 0)
+	for _, c := range pod.Spec.Containers {
+		containers = append(containers, Container{
+			Name: c.Name,
+		})
+	}
+
+	return &Pod{
+		Name:       pod.Name,
+		Namespace:  pod.Namespace,
+		Containers: containers,
+	}, nil
+}
+
+func (c *Client) ExecInPod(namespace, podName, containerName string, opts ExecOptions) error {
+	req := c.clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec")
+
+	req.VersionedParams(&corev1.PodExecOptions{
+		Container: containerName,
+		Command:   opts.Command,
+		Stdin:     opts.Stdin != nil,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       opts.TTY,
+	}, scheme.ParameterCodec)
+
+	exec, err := remotecommand.NewSPDYExecutor(c.config, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+
+	return exec.Stream(remotecommand.StreamOptions{
+		Stdin:  opts.Stdin,
+		Stdout: opts.Stdout,
+		Stderr: opts.Stderr,
+		Tty:    opts.TTY,
+	})
 }

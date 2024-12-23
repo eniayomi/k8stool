@@ -15,8 +15,12 @@ func getDescribeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "describe [resource] [name]",
 		Short: "Show details of a specific resource",
-		Long:  `Show detailed information about a specific Kubernetes resource`,
-		Args:  cobra.ExactArgs(2),
+		Long: `Show details of a specific resource.
+Supported resources: pod/po`,
+		Example: `  # Describe a pod
+  k8stool describe pod nginx-pod
+  k8stool describe po nginx-pod`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resourceType := args[0]
 			name := args[1]

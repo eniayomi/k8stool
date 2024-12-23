@@ -23,9 +23,10 @@ func getPodsCmd() *cobra.Command {
 	var allNamespaces bool
 
 	cmd := &cobra.Command{
-		Use:   "pods [namespace]",
-		Short: "List all pods in the specified namespace",
-		Args:  cobra.MaximumNArgs(1),
+		Use:     "pods [namespace]",
+		Aliases: []string{"po"},
+		Short:   "List all pods in the specified namespace",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := k8s.NewClient()
 			if err != nil {
