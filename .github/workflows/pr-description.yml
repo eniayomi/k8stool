@@ -1,0 +1,18 @@
+name: Generate PR Description
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  generate-pr-description:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate PR Description
+        uses: octue/generate-pull-request-description@1.0.0.beta-2
+        with:
+          github_token: ${{ secrets.INDIE_GITHUB_TOKEN }} 
