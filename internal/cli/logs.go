@@ -18,21 +18,29 @@ func getLogsCmd() *cobra.Command {
 	var container string
 	var since string
 	var sinceTime string
+	var allContainers bool
 
 	cmd := &cobra.Command{
-		Use:   "logs [pod-name]",
-		Short: "View logs from a pod's containers",
-		Long: `View logs from a pod's containers.
-Example: k8stool logs nginx-pod
-         k8stool logs nginx-pod -f`,
-		Args: cobra.ExactArgs(1),
+		Use:   "logs (pod|deployment) [name]",
+		Short: "View logs from containers",
+		Long: `View logs from containers in pods or deployments.
+Example: k8stool logs pod nginx-pod
+         k8stool logs deployment nginx
+         k8stool logs deploy nginx`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := k8s.NewClient()
 			if err != nil {
 				return err
 			}
 
-			podName := args[0]
+			// If namespace flag not provided, use the client's current namespace
+			if namespace == "" {
+				namespace = client.GetNamespace()
+			}
+
+			resourceType := args[0]
+			name := args[1]
 
 			// Parse time filters
 			var sinceSeconds *int64
@@ -55,35 +63,41 @@ Example: k8stool logs nginx-pod
 				startTime = &t
 			}
 
-			// Get container name if not specified
-			if container == "" {
-				pod, err := client.GetPod(namespace, podName)
-				if err != nil {
-					return err
-				}
-				if len(pod.Containers) > 0 {
-					container = pod.Containers[0].Name
-				}
+			switch resourceType {
+			case "pod", "po":
+				return client.GetPodLogs(namespace, name, container, k8s.LogOptions{
+					Follow:       follow,
+					Previous:     previous,
+					TailLines:    tail,
+					Writer:       os.Stdout,
+					SinceTime:    startTime,
+					SinceSeconds: sinceSeconds,
+				})
+			case "deployment", "deploy":
+				return client.GetDeploymentLogs(namespace, name, k8s.LogOptions{
+					Follow:        follow,
+					Previous:      previous,
+					TailLines:     tail,
+					Writer:        os.Stdout,
+					SinceTime:     startTime,
+					SinceSeconds:  sinceSeconds,
+					Container:     container,
+					AllContainers: allContainers,
+				})
+			default:
+				return fmt.Errorf("unsupported resource type: %s", resourceType)
 			}
-
-			return client.GetPodLogs(namespace, podName, container, k8s.LogOptions{
-				Follow:       follow,
-				Previous:     previous,
-				TailLines:    tail,
-				Writer:       os.Stdout,
-				SinceTime:    startTime,
-				SinceSeconds: sinceSeconds,
-			})
 		},
 	}
 
-	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Follow log output")
-	cmd.Flags().BoolVarP(&previous, "previous", "p", false, "Print the logs for the previous instance of the container")
+	cmd.Flags().BoolVarP(&previous, "previous", "p", false, "Print the logs for the previous instance")
 	cmd.Flags().Int64VarP(&tail, "tail", "t", -1, "Lines of recent log file to display")
 	cmd.Flags().StringVarP(&container, "container", "c", "", "Print the logs of this container")
 	cmd.Flags().StringVar(&since, "since", "", "Show logs since duration (e.g. 1h, 5m, 30s)")
 	cmd.Flags().StringVar(&sinceTime, "since-time", "", "Show logs since specific time (RFC3339 format)")
+	cmd.Flags().BoolVarP(&allContainers, "all-containers", "a", false, "Get logs from all containers")
 
 	return cmd
 }

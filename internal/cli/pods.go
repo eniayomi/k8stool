@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 	"text/tabwriter"
 
 	"k8stool/internal/k8s"
@@ -14,156 +13,152 @@ import (
 )
 
 func getPodsCmd() *cobra.Command {
-	var namespace string
+	var allNamespaces bool
 	var showMetrics bool
 	var labelSelector string
 	var statusFilter string
 	var sortBy string
-	var reverseSort bool
-	var allNamespaces bool
+	var reverse bool
+	var namespace string
 
 	cmd := &cobra.Command{
-		Use:     "pods [namespace]",
-		Aliases: []string{"po"},
-		Short:   "List all pods in the specified namespace",
-		Args:    cobra.MaximumNArgs(1),
+		Use:     "pods",
+		Aliases: []string{"pod", "po"},
+		Short:   "List pods",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := k8s.NewClient()
 			if err != nil {
 				return err
 			}
 
-			if len(args) > 0 {
-				namespace = args[0]
+			// If namespace flag not provided, use the client's current namespace
+			if !allNamespaces && namespace == "" {
+				namespace = client.GetNamespace()
 			}
 
-			if allNamespaces {
-				namespace = ""
-			}
-
-			pods, err := client.ListPods(namespace, labelSelector)
+			pods, err := client.ListPods(namespace, allNamespaces, labelSelector, statusFilter)
 			if err != nil {
 				return err
 			}
 
-			if statusFilter != "" {
-				var filteredPods []k8s.Pod
-				for _, pod := range pods {
-					if strings.EqualFold(pod.Status, statusFilter) {
-						filteredPods = append(filteredPods, pod)
-					}
-				}
-				pods = filteredPods
-			}
-
-			switch strings.ToLower(sortBy) {
-			case "age":
-				sort.Slice(pods, func(i, j int) bool {
-					if reverseSort {
-						return pods[i].Age < pods[j].Age
-					}
-					return pods[i].Age > pods[j].Age
-				})
-			case "status":
-				sort.Slice(pods, func(i, j int) bool {
-					if reverseSort {
-						return pods[i].Status > pods[j].Status
-					}
-					return pods[i].Status < pods[j].Status
-				})
-			case "name":
-				sort.Slice(pods, func(i, j int) bool {
-					if reverseSort {
-						return pods[i].Name > pods[j].Name
-					}
-					return pods[i].Name < pods[j].Name
-				})
-			}
-
-			w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
-
-			if allNamespaces {
-				if showMetrics {
-					fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tRESTARTS\tCONTROLLER\tCPU\tMEMORY\tAGE\tSTATUS")
-				} else {
-					fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tRESTARTS\tCONTROLLER\tAGE\tSTATUS")
-				}
-			} else {
-				if showMetrics {
-					fmt.Fprintln(w, "NAME\tREADY\tRESTARTS\tCONTROLLER\tCPU\tMEMORY\tAGE\tSTATUS")
-				} else {
-					fmt.Fprintln(w, "NAME\tREADY\tRESTARTS\tCONTROLLER\tAGE\tSTATUS")
+			if showMetrics {
+				if err := client.AddPodMetrics(pods); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: Could not get metrics: %v\n", err)
 				}
 			}
 
-			for _, pod := range pods {
-				var metrics *k8s.PodMetrics
-				if showMetrics {
-					metrics, _ = client.GetPodMetrics(pod.Namespace, pod.Name)
-				}
-
-				if showMetrics {
-					cpuUsage := "<none>"
-					memUsage := "<none>"
-					if metrics != nil {
-						cpuUsage = metrics.CPU
-						memUsage = metrics.Memory
-					}
-					if allNamespaces {
-						fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
-							pod.Namespace,
-							pod.Name,
-							pod.Ready,
-							pod.Restarts,
-							pod.Controller,
-							cpuUsage,
-							memUsage,
-							utils.FormatDuration(pod.Age),
-							utils.ColorizeStatus(pod.Status))
-					} else {
-						fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
-							pod.Name,
-							pod.Ready,
-							pod.Restarts,
-							pod.Controller,
-							cpuUsage,
-							memUsage,
-							utils.FormatDuration(pod.Age),
-							utils.ColorizeStatus(pod.Status))
-					}
-				} else {
-					if allNamespaces {
-						fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
-							pod.Namespace,
-							pod.Name,
-							pod.Ready,
-							pod.Restarts,
-							pod.Controller,
-							utils.FormatDuration(pod.Age),
-							utils.ColorizeStatus(pod.Status))
-					} else {
-						fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\n",
-							pod.Name,
-							pod.Ready,
-							pod.Restarts,
-							pod.Controller,
-							utils.FormatDuration(pod.Age),
-							utils.ColorizeStatus(pod.Status))
-					}
-				}
+			// Sort pods
+			if err := sortPods(pods, sortBy, reverse); err != nil {
+				return err
 			}
 
-			w.Flush()
-			return nil
+			return printPods(pods, showMetrics)
 		},
 	}
 
-	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
-	cmd.Flags().BoolVar(&showMetrics, "metrics", false, "Show CPU and memory usage")
-	cmd.Flags().StringVarP(&labelSelector, "selector", "l", "", "Label selector (e.g. 'app=nginx,env=prod')")
-	cmd.Flags().StringVarP(&statusFilter, "status", "s", "", "Filter pods by status (e.g. Running, Pending, Failed)")
-	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort pods by field (age, status, name)")
-	cmd.Flags().BoolVar(&reverseSort, "reverse", false, "Reverse the sort order")
-	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List pods across all namespaces")
+	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List pods in all namespaces")
+	cmd.Flags().BoolVar(&showMetrics, "metrics", false, "Show CPU and Memory metrics")
+	cmd.Flags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
+	cmd.Flags().StringVarP(&statusFilter, "status", "s", "", "Filter by status")
+	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by (name, status, age)")
+	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse sort order")
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
+
 	return cmd
+}
+
+func sortPods(pods []k8s.Pod, sortBy string, reverse bool) error {
+	switch sortBy {
+	case "":
+		return nil
+	case "name":
+		sort.Slice(pods, func(i, j int) bool {
+			if reverse {
+				return pods[i].Name > pods[j].Name
+			}
+			return pods[i].Name < pods[j].Name
+		})
+	case "status":
+		sort.Slice(pods, func(i, j int) bool {
+			if reverse {
+				return pods[i].Status > pods[j].Status
+			}
+			return pods[i].Status < pods[j].Status
+		})
+	case "age":
+		sort.Slice(pods, func(i, j int) bool {
+			if reverse {
+				return pods[i].Age > pods[j].Age
+			}
+			return pods[i].Age < pods[j].Age
+		})
+	default:
+		return fmt.Errorf("invalid sort key: %s", sortBy)
+	}
+	return nil
+}
+
+func printPods(pods []k8s.Pod, showMetrics bool) error {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	defer w.Flush()
+
+	// Check if we need to show namespace column by checking if pods are from different namespaces
+	showNamespace := false
+	if len(pods) > 0 {
+		ns := pods[0].Namespace
+		for _, pod := range pods[1:] {
+			if pod.Namespace != ns {
+				showNamespace = true
+				break
+			}
+		}
+	}
+
+	if showMetrics {
+		if showNamespace {
+			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tRESTARTS\tIP\tNODE\tCPU\tMEMORY\tAGE\tSTATUS")
+		} else {
+			fmt.Fprintln(w, "NAME\tREADY\tRESTARTS\tIP\tNODE\tCPU\tMEMORY\tAGE\tSTATUS")
+		}
+	} else {
+		if showNamespace {
+			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tRESTARTS\tIP\tNODE\tAGE\tSTATUS")
+		} else {
+			fmt.Fprintln(w, "NAME\tREADY\tRESTARTS\tIP\tNODE\tAGE\tSTATUS")
+		}
+	}
+
+	for _, pod := range pods {
+		age := utils.FormatDuration(pod.Age)
+
+		if showMetrics {
+			cpu := "<none>"
+			mem := "<none>"
+			if pod.Metrics != nil {
+				cpu = pod.Metrics.CPU
+				mem = pod.Metrics.Memory
+			}
+			if showNamespace {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					pod.Namespace, pod.Name, pod.Ready, pod.Restarts,
+					pod.IP, pod.Node, cpu, mem, age, pod.Status)
+			} else {
+				fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					pod.Name, pod.Ready, pod.Restarts,
+					pod.IP, pod.Node, cpu, mem, age, pod.Status)
+			}
+		} else {
+			if showNamespace {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\n",
+					pod.Namespace, pod.Name, pod.Ready, pod.Restarts,
+					pod.IP, pod.Node, age, pod.Status)
+			} else {
+				fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\n",
+					pod.Name, pod.Ready, pod.Restarts,
+					pod.IP, pod.Node, age, pod.Status)
+			}
+		}
+	}
+
+	return nil
 }

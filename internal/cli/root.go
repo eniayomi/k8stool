@@ -36,4 +36,5 @@ func init() {
 	rootCmd.AddCommand(getDescribeCmd())
 	rootCmd.AddCommand(getMetricsCmd())
 	rootCmd.AddCommand(getExecCmd())
+	rootCmd.AddCommand(getPortForwardCmd())
 }
