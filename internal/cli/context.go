@@ -13,9 +13,10 @@ import (
 
 func getContextCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "context",
-		Short: "Show or list Kubernetes contexts",
-		Long:  `Show current context or list all available contexts in your kubeconfig`,
+		Use:     "context",
+		Aliases: []string{"ctx"},
+		Short:   "Show, list or switch Kubernetes contexts",
+		Long:    `Show current context, list all available contexts in your kubeconfig, or switch to a different context`,
 	}
 
 	cmd.AddCommand(listContextCmd())
