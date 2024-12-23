@@ -49,6 +49,7 @@ brews:
   - repository:
       owner: eniayomi
       name: homebrew-tap
+      branch: main
     homepage: "https://github.com/eniayomi/k8stool"
     description: "A command-line tool for managing Kubernetes resources"
     commit_author:
