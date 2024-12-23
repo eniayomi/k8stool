@@ -9,12 +9,14 @@ import (
 
 	"k8stool/internal/k8s"
 
+	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
 
 func getPortForwardCmd() *cobra.Command {
 	var namespace string
 	var address string
+	var interactive bool
 
 	cmd := &cobra.Command{
 		Use:   "port-forward (pod|deployment) NAME [LOCAL_PORT:]REMOTE_PORT [...[LOCAL_PORT_N:]REMOTE_PORT_N]",
@@ -31,9 +33,12 @@ Examples:
   k8stool port-forward pod nginx 8080:80 9090:90
 
   # Forward same remote port if local port not specified
-  k8stool port-forward pod nginx 80`,
+  k8stool port-forward pod nginx 80
+
+  # Interactive mode
+  k8stool port-forward -i`,
 		Aliases: []string{"pf"},
-		Args:    cobra.MinimumNArgs(2),
+		Args:    cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := k8s.NewClient()
 			if err != nil {
@@ -43,6 +48,16 @@ Examples:
 			// If namespace flag not provided, use the client's current namespace
 			if namespace == "" {
 				namespace = client.GetNamespace()
+			}
+
+			// Handle interactive mode
+			if interactive {
+				return handleInteractivePortForward(client, namespace, address)
+			}
+
+			// Original non-interactive logic continues here
+			if len(args) < 2 {
+				return fmt.Errorf("resource type and name are required")
 			}
 
 			resourceType := args[0]
@@ -108,6 +123,79 @@ Examples:
 
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
 	cmd.Flags().StringVar(&address, "address", "localhost", "Local address to bind to")
+	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Interactive mode")
 
 	return cmd
+}
+
+func handleInteractivePortForward(client *k8s.Client, namespace, address string) error {
+	// Get list of pods
+	pods, err := client.ListPods(namespace, false, "", "")
+	if err != nil {
+		return err
+	}
+
+	// Create pod selection prompt
+	podPrompt := promptui.Select{
+		Label: "Select pod to port-forward",
+		Items: pods,
+		Templates: &promptui.SelectTemplates{
+			Label:    "{{ . }}",
+			Active:   "▸ {{ .Name | cyan }}",
+			Inactive: "  {{ .Name }}",
+			Selected: "✔ {{ .Name | green }}",
+		},
+	}
+
+	idx, _, err := podPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	selectedPod := pods[idx]
+
+	// Get container ports
+	containerPorts := []string{}
+	for _, container := range selectedPod.Containers {
+		for _, port := range container.Ports {
+			containerPorts = append(containerPorts,
+				fmt.Sprintf("%d:%d (%s)", port.ContainerPort, port.ContainerPort, container.Name))
+		}
+	}
+
+	if len(containerPorts) == 0 {
+		return fmt.Errorf("no ports exposed by pod %s", selectedPod.Name)
+	}
+
+	// Create port selection prompt
+	portPrompt := promptui.Select{
+		Label: "Select port mapping (container:local)",
+		Items: containerPorts,
+		Templates: &promptui.SelectTemplates{
+			Label:    "{{ . }}",
+			Active:   "▸ {{ . | cyan }}",
+			Inactive: "  {{ . }}",
+			Selected: "✔ {{ . | green }}",
+		},
+	}
+
+	_, portMapping, err := portPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	// Parse port mapping and create PortMapping slice
+	parts := strings.Split(strings.Fields(portMapping)[0], ":")
+	portMappings := []k8s.PortMapping{
+		{
+			Local:  parts[0],
+			Remote: parts[1],
+		},
+	}
+
+	// Start port forwarding
+	stopChan := make(chan struct{}, 1)
+	readyChan := make(chan struct{})
+
+	return client.PortForwardPod(namespace, selectedPod.Name, address, portMappings, stopChan, readyChan)
 }

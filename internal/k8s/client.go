@@ -328,6 +328,23 @@ func (c *Client) ListPods(namespace string, allNamespaces bool, selector string,
 			break
 		}
 
+		// Add container information
+		containers := make([]ContainerInfo, 0, len(pod.Spec.Containers))
+		for _, container := range pod.Spec.Containers {
+			ports := make([]ContainerPort, 0, len(container.Ports))
+			for _, port := range container.Ports {
+				ports = append(ports, ContainerPort{
+					Name:          port.Name,
+					ContainerPort: port.ContainerPort,
+					Protocol:      string(port.Protocol),
+				})
+			}
+			containers = append(containers, ContainerInfo{
+				Name:  container.Name,
+				Ports: ports,
+			})
+		}
+
 		result = append(result, Pod{
 			Name:           pod.Name,
 			Namespace:      pod.Namespace,
@@ -340,6 +357,7 @@ func (c *Client) ListPods(namespace string, allNamespaces bool, selector string,
 			Labels:         pod.Labels,
 			Controller:     controllerKind,
 			ControllerName: controllerName,
+			Containers:     containers,
 		})
 	}
 

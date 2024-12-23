@@ -2,11 +2,11 @@
 
 A command-line tool for managing Kubernetes resources with enhanced features and user-friendly output.
 
+![k8stool terminal demo](./images/k8stool.png)
+
 ## Installation
 
-```bash
-go install github.com/eniayomi/k8stool
-```
+[Add installation instructions here]
 
 ## Features
 
@@ -25,13 +25,20 @@ go install github.com/eniayomi/k8stool
   k8stool get pods --sort name        # Sort by name
   k8stool get pods --sort status      # Sort by status
   ```
+  - Color-coded status (Running: green, Pending: yellow, Failed: red)
+  - Namespace column only shows when listing across namespaces
+  - Smart age formatting (2y3d, 3M15d, 5d6h, 2h30m, 45m, 30s)
 
-### Pod Events
-- ✅ Show pod events
+### Pod/Deployment Events
+- ✅ Show resource events
   ```bash
-  k8stool get events nginx-pod        # Show events for a pod
-  k8stool get ev nginx-pod            # Short alias for events
+  k8stool get events pod nginx-pod         # Show events for a pod
+  k8stool get ev pod nginx-pod             # Short alias for events
+  k8stool get events deployment nginx      # Show events for a deployment
+  k8stool get ev deploy nginx              # Short alias
   ```
+  - Color-coded event types (Normal: green, Warning: yellow)
+  - Supports both pods and deployments
 
 ### Pod Logs
 - ✅ View and follow container logs
@@ -46,15 +53,18 @@ go install github.com/eniayomi/k8stool
   k8stool logs nginx-pod --since-time "2024-01-20T15:04:05Z"  # Show logs since specific time
   ```
 
-### Pod Exec
-- ✅ Execute commands in containers
+### Port Forwarding
+- ✅ Forward ports to pods
   ```bash
-  k8stool exec nginx-pod              # Start a shell (tries bash, falls back to sh)
-  k8stool exec nginx-pod bash         # Start bash shell
-  k8stool exec nginx-pod sh           # Start sh shell
-  k8stool exec nginx-pod -- ls /app   # Run specific command
-  k8stool exec nginx-pod -c nginx     # Execute in specific container
+  k8stool port-forward pod nginx 8080:80          # Forward local 8080 to pod 80
+  k8stool pf pod nginx 8080:80                    # Short alias
+  k8stool port-forward pod nginx 8080:80 9090:90  # Multiple ports
+  k8stool port-forward -i                         # Interactive mode
   ```
+  - Interactive mode features:
+    - Select pod from a list
+    - View and select available container ports
+    - Auto-setup port forwarding
 
 ### Deployment Management
 - ✅ List deployments with status
@@ -64,100 +74,14 @@ go install github.com/eniayomi/k8stool
   k8stool get deploy -n kube-system   # List in specific namespace
   k8stool get deploy -A               # List in all namespaces
   ```
-
-
-## Usage Examples
-
-### List Pods
-```bash
-# List pods in default namespace
-k8stool get pods
-
-# List pods in specific namespace
-k8stool get pods -n kube-system
-```
-
-### Describe Pod
-```bash
-# Describe a pod
-k8stool describe pod my-pod-name
-
-# Describe a pod in specific namespace
-k8stool describe pod my-pod-name -n my-namespace
-```
-
-### Pod Metrics
-```bash
-# Get pod metrics
-k8stool metrics my-pod-name
-
-# Get pod metrics in specific namespace
-k8stool metrics my-pod-name -n my-namespace
-```
-
-## Output Examples
-
-### Pod List
-```
-NAME                                READY    STATUS    RESTARTS    AGE        CONTROLLER
-nginx-deployment-6799fc88d8-x7zv9   1/1      Running   0           2y18d      Deployment
-redis-master-0                      1/1      Running   0           5d2h       StatefulSet
-```
-
-### Pod List with Metrics
-```bash
-NAME                     READY    STATUS    RESTARTS    CPU     MEMORY    AGE     CONTROLLER
-nginx-deployment-x7zv9   1/1      Running   0          125m    64Mi      2y18d   Deployment
-redis-master-0           1/1      Running   0          250m    128Mi     5d2h    StatefulSet
-```
-
-### Deployment List
-```bash
-NAME               READY   UP-TO-DATE   AVAILABLE   AGE
-nginx-deployment   3/3     3            3           2y18d
-redis-deployment   2/2     2            2           5d2h
-```
-
-### Pod Description
-```
-Pod Details:
-  Name:            nginx-deployment-6799fc88d8-x7zv9
-  Namespace:       default
-  Node:            worker-1
-  Status:          Running
-  IP:              10.244.1.12
-  Created:         2023-04-20 15:04:05
-  Node-Selectors:  <none>
-
-Containers:
-  • nginx:
-      Image:         nginx:1.14.2
-      State:         Running
-      Ready:         true
-      Restart Count: 0
-
-      Resources:
-        Requests:
-          CPU:    100m
-          Memory: 128Mi
-        Limits:
-          CPU:    200m
-          Memory: 256Mi
-```
-
-### Pod Metrics
-```
-Pod Metrics:
-  Name:      nginx-deployment-6799fc88d8-x7zv9
-  Namespace: default
-  CPU:       125m
-  Memory:    64Mi
-
-Container Metrics:
-  • nginx:
-      CPU:    100m
-      Memory: 45Mi
-```
+  - Namespace column only shows when listing across namespaces
+  - Detailed deployment information (replicas, status, age)
+  - Smart age formatting (2y3d, 3M15d, 5d6h, 2h30m, 45m, 30s)
+  - View deployment events with describe command
+  ```bash
+  k8stool describe deployment nginx   # Show detailed deployment info with events
+  k8stool describe deploy nginx       # Short alias
+  ```
 
 ## Requirements
 
@@ -167,7 +91,7 @@ Container Metrics:
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+[contribution guidelines]
 
 ## License
 
