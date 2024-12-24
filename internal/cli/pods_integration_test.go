@@ -120,6 +120,9 @@ func TestPodsCommands_Integration(t *testing.T) {
 
 			// Execute command
 			err := cmd.Execute()
+			if err != nil && !tt.wantErr {
+				t.Fatalf("unexpected error executing command: %v", err)
+			}
 
 			// Read output
 			w.Close()
