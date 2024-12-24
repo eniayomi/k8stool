@@ -25,93 +25,28 @@ jobs:
           --k3s-arg "--disable=traefik,servicelb,metrics-server@server:*"
 
     - name: Run integration tests with coverage
-      id: test
       run: |
-        # Run tests and capture output
-        OUTPUT=$(go test -v ./... -tags=integration -coverprofile=coverage.out -covermode=atomic 2>&1)
-        echo "$OUTPUT" > test_output.txt
-        echo "test_output<<EOF" >> $GITHUB_ENV
-        echo "$OUTPUT" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
+        go test -v ./... -tags=integration -coverprofile=coverage.txt -covermode=atomic
         
-        # Generate HTML coverage report
-        go tool cover -html=coverage.out -o coverage.html
-        
-        # Get coverage percentage
-        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
-        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
-
-    - name: Comment Test Results
-      if: always()
-      uses: actions/github-script@v7
+    - name: Archive code coverage results
+      uses: actions/upload-artifact@v4
       with:
-        github-token: ${{ secrets.INDIE_GITHUB_TOKEN }} 
-        script: |
-          const fs = require('fs');
-          
-          // Get test output
-          const testOutput = fs.readFileSync('test_output.txt', 'utf8');
-          
-          // Get coverage from coverage.out
-          let coverage = '';
-          try {
-            const coverageOutput = require('child_process').execSync('go tool cover -func=coverage.out').toString();
-            
-            // Create a more visual representation
-            const totalCoverage = '${{ steps.test.outputs.coverage }}';
-            const coverageNum = parseFloat(totalCoverage);
-            let coverageEmoji = '🔴';
-            if (coverageNum >= 80) coverageEmoji = '🟢';
-            else if (coverageNum >= 60) coverageEmoji = '🟡';
-            
-            coverage = `\n\n### Coverage Report ${coverageEmoji}\n` +
-                      `Total Coverage: ${totalCoverage}\n\n` +
-                      '```\n' + coverageOutput + '```';
-          } catch (error) {
-            coverage = '\n\n❌ Failed to generate coverage report';
-          }
-          
-          // Format test output
-          const testLines = testOutput.split('\n')
-            .filter(line => line.match(/^(ok|FAIL)\s+/))
-            .map(line => '    ' + line)
-            .join('\n');
-          
-          const header = `## 🧪 Test Results\n\n`;
-          const status = process.env.TEST_OUTCOME === 'success' ? '✅ All tests passed!' : '❌ Some tests failed';
-          const testSummary = `\n\n### Test Summary\n\`\`\`\n${testLines}\n\`\`\``;
-          
-          const body = header + status + testSummary + coverage;
-          
-          // Minimize previous comments
-          const comments = await github.rest.issues.listComments({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number,
-          });
-          
-          for (const comment of comments.data) {
-            if (comment.body.includes('🧪 Test Results')) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: comment.id,
-                body: '<details><summary>Previous Test Results</summary>\n\n' + comment.body + '</details>'
-              });
-            }
-          }
-          
-          // Post new comment
-          await github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          });
+        name: code-coverage
+        path: coverage.txt
 
-    - name: Save coverage report
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: coverage-report
-        path: coverage.html 
+  coverage-report:
+    name: "Code coverage report"
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: fgrosse/go-coverage-report@v1.2.0
+        with:
+          coverage-artifact-name: "code-coverage"
+          coverage-file-name: "coverage.txt"
+          # Optionally trim package paths in report
+          trim: "github.com/eniayomi/k8stool/" 
