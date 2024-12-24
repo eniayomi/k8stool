@@ -6,6 +6,10 @@ on:
 
 jobs:
   integration-tests:
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
