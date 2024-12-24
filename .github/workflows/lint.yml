@@ -34,19 +34,31 @@ jobs:
             try {
               const rawData = fs.readFileSync('golangci-lint-results.json', 'utf8');
               const output = JSON.parse(rawData);
-              const comments = output.Issues.map(issue => 
-                `**${issue.Severity}**: ${issue.Text}\n` +
-                `File: ${issue.Pos.Filename}:${issue.Pos.Line}`
-              ).join('\n\n');
               
-              if (comments) {
-                github.rest.issues.createComment({
-                  issue_number: context.issue.number,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  body: '### Linting Issues Found\n\n' + comments
-                });
+              if (!output.Issues || output.Issues.length === 0) {
+                return;
               }
+
+              const header = '## 🔍 Linting Issues Found\n\n';
+              const summary = `Found ${output.Issues.length} issue${output.Issues.length > 1 ? 's' : ''}\n\n`;
+              
+              const comments = output.Issues.map(issue => {
+                const severity = issue.Severity === 'error' ? '❌' : '⚠️';
+                return [
+                  `### ${severity} ${issue.Text}`,
+                  '```',
+                  `File: ${issue.Pos.Filename}:${issue.Pos.Line}`,
+                  `Rule: ${issue.FromLinter}`,
+                  '```'
+                ].join('\n');
+              }).join('\n\n');
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: header + summary + comments
+              });
             } catch (error) {
               console.error('Error processing lint results:', error);
               core.setFailed('Failed to process lint results');
