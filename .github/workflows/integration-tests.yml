@@ -27,9 +27,12 @@ jobs:
     - name: Install go-ctrf-json-reporter
       run: go install github.com/ctrf-io/go-ctrf-json-reporter/cmd/go-ctrf-json-reporter@latest
 
+    - name: Install github-actions-ctrf
+      run: npm install -g github-actions-ctrf@latest
+
     - name: Run integration tests with coverage and generate CTRF report
       run: |
-        go test -v ./... -tags=integration -json -coverprofile=coverage.txt -covermode=atomic | go-ctrf-json-reporter -output ctrf-report.json
+        go test -v ./... -tags=integration -json -coverprofile=coverage.txt -covermode=atomic 2>&1 | go-ctrf-json-reporter -output ctrf-report.json
       
     - name: Display Coverage
       if: always()
@@ -53,7 +56,7 @@ jobs:
     - name: Publish Test Results
       if: always()
       run: |
-        npx github-actions-ctrf ctrf-report.json
+        github-actions-ctrf ctrf-report.json
 
     - name: Install gocover-cobertura
       run: |
