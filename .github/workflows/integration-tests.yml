@@ -28,7 +28,13 @@ jobs:
       run: |
         go test -v ./... -tags=integration -coverprofile=coverage.txt -covermode=atomic
         
+    - name: Display Coverage
+      if: always()
+      run: |
+        go tool cover -func=coverage.txt
+
     - name: Archive code coverage results
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: code-coverage
@@ -47,5 +53,4 @@ jobs:
         with:
           coverage-artifact-name: "code-coverage"
           coverage-file-name: "coverage.txt"
-          # Optionally trim package paths in report
-          trim: "github.com/eniayomi/k8stool/" 
+          trim: "k8stool/" 
