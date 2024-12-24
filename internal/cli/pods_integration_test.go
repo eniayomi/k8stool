@@ -40,12 +40,10 @@ func TestPodsCommands_Integration(t *testing.T) {
 			args:    []string{"-n", "kube-system"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
-				// Look for pods that we know exist in kube-system
+				// Look for pods that we know exist in our k3d cluster
 				assert.Contains(t, output, "coredns")
 				// or
-				assert.Contains(t, output, "calico")
-				// or
-				assert.Contains(t, output, "metrics-server")
+				assert.Contains(t, output, "local-path-provisioner")
 			},
 		},
 		{
@@ -65,6 +63,7 @@ func TestPodsCommands_Integration(t *testing.T) {
 				assert.Contains(t, output, "NAMESPACE")
 				assert.Contains(t, output, "NAME")
 				assert.Contains(t, output, "STATUS")
+				assert.Contains(t, output, "kube-system") // We know this namespace exists
 			},
 		},
 	}

@@ -51,7 +51,7 @@ func TestContextCommands_Integration(t *testing.T) {
 			name:    "switch context with invalid name",
 			command: "switch",
 			args:    []string{"nonexistent-context"},
-			wantErr: false,
+			wantErr: true,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Error: context \"nonexistent-context\" does not exist")
 			},
