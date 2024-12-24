@@ -124,7 +124,10 @@ func TestPodsCommands_Integration(t *testing.T) {
 			// Read output
 			w.Close()
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			_, err = io.Copy(&buf, r)
+			if err != nil {
+				t.Fatalf("failed to copy response: %v", err)
+			}
 			output := buf.String()
 
 			t.Logf("Command output:\n%s", output)
