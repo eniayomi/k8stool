@@ -71,13 +71,12 @@ func TestContextCommands_Integration(t *testing.T) {
 			cmd.SetArgs(append([]string{tt.command}, tt.args...))
 
 			// Execute command
-			err := cmd.Execute()
+			execErr := cmd.Execute()
 
 			// Read output
 			w.Close()
 			var buf bytes.Buffer
-			_, err = io.Copy(&buf, r)
-			if err != nil {
+			if _, err := io.Copy(&buf, r); err != nil {
 				t.Fatalf("failed to copy response: %v", err)
 			}
 			output := buf.String()
@@ -85,9 +84,9 @@ func TestContextCommands_Integration(t *testing.T) {
 			t.Logf("Command output:\n%s", output)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				assert.Error(t, execErr)
 			} else {
-				assert.NoError(t, err)
+				assert.NoError(t, execErr)
 			}
 			tt.validate(t, output)
 		})

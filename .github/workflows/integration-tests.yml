@@ -24,10 +24,13 @@ jobs:
           --no-lb
           --k3s-arg "--disable=traefik,servicelb,metrics-server@server:*"
 
-    - name: Run integration tests with coverage
+    - name: Install go-ctrf-json-reporter
+      run: go install github.com/ctrf-io/go-ctrf-json-reporter/cmd/go-ctrf-json-reporter@latest
+
+    - name: Run integration tests with coverage and generate CTRF report
       run: |
-        go test -v ./... -tags=integration -coverprofile=coverage.txt -covermode=atomic
-        
+        go test -v ./... -tags=integration -json -coverprofile=coverage.txt -covermode=atomic | go-ctrf-json-reporter -output ctrf-report.json
+      
     - name: Display Coverage
       if: always()
       run: |
@@ -39,6 +42,18 @@ jobs:
       with:
         name: code-coverage
         path: coverage.txt
+
+    - name: Archive test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ctrf-report
+        path: ctrf-report.json
+
+    - name: Publish Test Results
+      if: always()
+      run: |
+        npx github-actions-ctrf ctrf-report.json
 
   coverage-report:
     name: "Code coverage report"
