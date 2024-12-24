@@ -57,13 +57,13 @@ func TestPodsCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "list pods with all namespaces",
-			args:    []string{"-A"},
+			args:    []string{"--all-namespaces"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "NAMESPACE")
 				assert.Contains(t, output, "NAME")
 				assert.Contains(t, output, "STATUS")
-				assert.Contains(t, output, "kube-system") // We know this namespace exists
+				assert.Contains(t, output, "kube-system")
 			},
 		},
 	}
