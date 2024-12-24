@@ -19,7 +19,7 @@ builds:
       - goos: windows
         goarch: arm64
     ldflags:
-      - -s -w -X k8stool/cmd/k8stool.version={{.Version}} -X k8stool/cmd/k8stool.commit={{.Commit}} -X k8stool/cmd/k8stool.date={{.Date}}
+      - -s -w -X k8stool/internal/cli.Version={{.Version}} -X k8stool/internal/cli.Commit={{.Commit}} -X k8stool/internal/cli.Date={{.Date}}
 
 archives:
   - format: tar.gz
