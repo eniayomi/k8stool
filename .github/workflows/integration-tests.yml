@@ -36,6 +36,7 @@ jobs:
         go test -v ./... -tags=integration -json -coverprofile=coverage.txt -covermode=atomic
 
     - name: Test Report
+      if: always()
       uses: robherley/go-test-action@v0
       with:
         fromJSONFile: ./test2json.json
