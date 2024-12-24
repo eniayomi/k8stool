@@ -38,7 +38,7 @@ jobs:
     - name: Test Report
       uses: robherley/go-test-action@v0
       with:
-        testArguments: '-tags=integration -json -coverprofile=coverage.txt -covermode=atomic'
+        testArguments: '-v ./... -tags=integration -coverprofile=coverage.txt -covermode=atomic'
 
     - name: Archive code coverage results
       if: always()
