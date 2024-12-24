@@ -2,6 +2,9 @@ package cli
 
 import (
 	"bytes"
+	"io"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,48 +15,78 @@ func TestContextCommands_Integration(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
+	// Save original stdout and restore it after tests
+	oldStdout := os.Stdout
+	defer func() { os.Stdout = oldStdout }()
+
 	tests := []struct {
-		name       string
-		command    string
-		args       []string
-		wantOutput string
-		wantErr    bool
+		name     string
+		command  string
+		args     []string
+		wantErr  bool
+		validate func(t *testing.T, output string)
 	}{
 		{
 			name:    "list contexts",
-			command: "context",
-			args:    []string{"list"},
+			command: "list",
+			args:    []string{},
 			wantErr: false,
+			validate: func(t *testing.T, output string) {
+				assert.Contains(t, output, "CURRENT")
+				assert.Contains(t, output, "NAME")
+				assert.Contains(t, output, "CLUSTER")
+			},
 		},
 		{
 			name:    "show current context",
-			command: "context",
-			args:    []string{"current"},
+			command: "current",
+			args:    []string{},
 			wantErr: false,
+			validate: func(t *testing.T, output string) {
+				assert.Contains(t, output, "Current context:")
+				assert.True(t, len(strings.TrimSpace(output)) > 0)
+			},
 		},
 		{
 			name:    "switch context with invalid name",
-			command: "context",
-			args:    []string{"switch", "nonexistent-context"},
+			command: "switch",
+			args:    []string{"nonexistent-context"},
 			wantErr: true,
+			validate: func(t *testing.T, output string) {
+				assert.Contains(t, output, "does not exist")
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewRootCmd()
-			buf := new(bytes.Buffer)
-			cmd.SetOut(buf)
-			cmd.SetErr(buf)
+			// Create a pipe to capture output
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// Create command
+			cmd := getContextCmd()
+			cmd.SetOut(w)
+			cmd.SetErr(w)
 			cmd.SetArgs(append([]string{tt.command}, tt.args...))
 
+			// Execute command
 			err := cmd.Execute()
+
+			// Read output
+			w.Close()
+			var buf bytes.Buffer
+			io.Copy(&buf, r)
+			output := buf.String()
+
+			t.Logf("Command output:\n%s", output)
+
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.NotEmpty(t, buf.String())
 			}
+			tt.validate(t, output)
 		})
 	}
 }
