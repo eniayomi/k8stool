@@ -52,7 +52,7 @@ func getPodsCmd() *cobra.Command {
 				return err
 			}
 
-			return printPods(pods, showMetrics)
+			return printPods(pods, showMetrics, allNamespaces)
 		},
 	}
 
@@ -98,13 +98,13 @@ func sortPods(pods []k8s.Pod, sortBy string, reverse bool) error {
 	return nil
 }
 
-func printPods(pods []k8s.Pod, showMetrics bool) error {
+func printPods(pods []k8s.Pod, showMetrics bool, allNamespaces bool) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()
 
-	// Check if we need to show namespace column by checking if pods are from different namespaces
-	showNamespace := false
-	if len(pods) > 0 {
+	// Show namespace column if -A flag is used or pods are from different namespaces
+	showNamespace := allNamespaces
+	if !showNamespace && len(pods) > 0 {
 		ns := pods[0].Namespace
 		for _, pod := range pods[1:] {
 			if pod.Namespace != ns {
