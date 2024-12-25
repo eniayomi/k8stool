@@ -28,28 +28,23 @@ jobs:
           --no-lb
           --k3s-arg "--disable=traefik,servicelb,metrics-server@server:*"
 
-    - name: Install github-actions-ctrf
-      run: npm install -g github-actions-ctrf@latest
-
     - name: Run integration tests with coverage report
       run: |
-        go test -v ./... -tags=integration -json -coverprofile=coverage.txt -covermode=atomic > test2json.json 2>&1 || exit_code=$?
-        if [ ! -f "test2json.json" ]; then
-          echo "No test report generated"
-          exit 1
-        fi
-        exit ${exit_code:-0}
+        go install github.com/jstemmer/go-junit-report@latest
+        go test -v ./... -tags=integration -coverprofile=coverage.txt -covermode=atomic | go-junit-report -set-exit-code > report.xml  
 
     - name: List contents
       if: always()
       run: |
         ls -la
 
-    - name: Test Report
-      if: always()
-      uses: robherley/go-test-action@v0
+    - name: Test Summary
+      uses: test-summary/action@v1
       with:
-        fromJSONFile: ./test2json.json
+        paths: |
+          ./report.xml            
+      if: always()
+
 
     - name: Archive code coverage results
       if: always()
