@@ -33,7 +33,17 @@ jobs:
 
     - name: Run integration tests with coverage report
       run: |
-        go test -v ./... -tags=integration -json -coverprofile=coverage.txt -covermode=atomic
+        go test -v ./... -tags=integration -json -coverprofile=coverage.txt -covermode=atomic > test2json.json 2>&1 || exit_code=$?
+        if [ ! -f "test2json.json" ]; then
+          echo "No test report generated"
+          exit 1
+        fi
+        exit ${exit_code:-0}
+
+    - name: List contents
+      if: always()
+      run: |
+        ls -la
 
     - name: Test Report
       if: always()
