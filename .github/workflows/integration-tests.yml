@@ -31,7 +31,8 @@ jobs:
     - name: Run integration tests with coverage report
       run: |
         go install github.com/jstemmer/go-junit-report@latest
-        kubectl get ns
+        kubectl get po -n kube-system 
+        kubectl get po -A
         go test -v ./... -tags=integration -coverprofile=coverage.txt -covermode=atomic | go-junit-report -set-exit-code > report.xml  
 
     - name: Test Summary
