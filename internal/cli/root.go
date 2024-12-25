@@ -4,11 +4,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Add these variables at package level
+// Make these variables exported (capitalized)
 var (
-	version string
-	commit  string
-	date    string
+	Version string
+	Commit  string
+	Date    string
 )
 
 var rootCmd = &cobra.Command{
@@ -18,11 +18,8 @@ var rootCmd = &cobra.Command{
 allowing you to view pods, logs, deployments, and more.`,
 }
 
-// Update Execute to accept version info
-func Execute(v, c, d string) error {
-	version = v
-	commit = c
-	date = d
+// Remove the parameter passing since we'll use package variables
+func Execute() error {
 	return rootCmd.Execute()
 }
 
@@ -48,5 +45,5 @@ func init() {
 	rootCmd.AddCommand(getMetricsCmd())
 	rootCmd.AddCommand(getExecCmd())
 	rootCmd.AddCommand(getPortForwardCmd())
-	rootCmd.AddCommand(getVersionCmd(version, commit, date))
+	rootCmd.AddCommand(getVersionCmd())
 }
