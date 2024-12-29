@@ -1,0 +1,113 @@
+site_name: K8sTool
+site_author: Oluwapelumi Oluwaseyi
+site_description: >-
+  K8sTool is a versatile and efficient command-line tool designed to simplify Kubernetes resource management
+
+site_dir: public
+
+repo_name: eniayomi/k8stool
+repo_url: https://github.com/eniayomi/k8stool
+
+copyright: Copyright &copy; 2024 - Oluwapelumi Oluwaseyi
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - navigation.expand
+    - toc.follow
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - navigation.instant
+    - navigation.footer
+  palette:
+    - scheme: default
+      primary: deep-purple
+      accent: deep-purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep-purple
+      accent: deep-purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off
+        name: Switch to system preference
+  font:
+    text: Roboto
+    code: Roboto Mono
+  icon:
+    logo: material/book-open-page-variant
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - def_list
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/eniayomi/k8stool
+  analytics:
+    provider: google
+    property: !ENV GOOGLE_ANALYTICS_KEY
+
+nav:
+  - Home:
+    - About: index.md
+    - Prerequisites: prerequisites.md
+    - Installation: installation.md
+    - Quick Start: quick_start.md
+  - Commands:
+      - Overview: commands/index.md
+      - Resource Management:
+          - Pods: commands/pods.md
+          - Deployments: commands/deployments.md
+          - Events: commands/events.md
+          - Describe: commands/describe.md
+      - Operations:
+          - Logs: commands/logs.md
+          - Port Forward: commands/port-forward.md
+          - Exec: commands/exec.md
+      - Cluster Management:
+          - Context: commands/context.md
+          - Namespace: commands/namespace.md
+      - Monitoring:
+          - Metrics: commands/metrics.md
+  - Usage Guide:
+      - Basic Usage: usage.md
+  - Reference:
+      - Project Structure: project_structure.md
+  - Community:
+      - Contributing: contributing.md
+  - Support:
+      - FAQ: faq.md
+      - Troubleshooting: troubleshooting.md
+      - Release Notes: changelog.md

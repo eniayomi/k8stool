@@ -1,5 +1,11 @@
 # k8stool
 
+[![license](https://img.shields.io/github/license/eniayomi/k8stool.svg)](https://github.com/eniayomi/k8stool/blob/main/LICENSE)
+[![release](https://img.shields.io/github/release/eniayomi/k8stool.svg)](https://github.com/eniayomi/k8stool/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/eniayomi/k8stool)](https://goreportcard.com/report/github.com/eniayomi/k8stool)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/eniayomi/k8stool/total)
+![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/eniayomi/k8stool/latest/total)
+
 A command-line tool for managing Kubernetes resources with enhanced features and user-friendly output.
 
 ## Installation
