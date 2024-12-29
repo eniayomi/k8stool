@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
-	"k8stool/internal/k8s"
+	k8s "k8stool/internal/k8s/client"
 	"os"
 	"path/filepath"
 

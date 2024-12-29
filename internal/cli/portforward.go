@@ -7,7 +7,7 @@ import (
 	"strings"
 	"syscall"
 
-	"k8stool/internal/k8s"
+	k8s "k8stool/internal/k8s/client"
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"

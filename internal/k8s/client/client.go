@@ -248,6 +248,45 @@ type DeploymentDetails struct {
 	Containers        []ContainerInfo
 }
 
+var (
+	defaultClient *Client
+	clientMutex   sync.Mutex
+)
+
+// Initialize initializes the default client instance
+func Initialize(clientset *kubernetes.Clientset, config *rest.Config) error {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
+
+	if clientset == nil {
+		return fmt.Errorf("kubernetes clientset is required")
+	}
+	if config == nil {
+		return fmt.Errorf("rest config is required")
+	}
+
+	// Create metrics client
+	metricsClient, err := metricsv1beta1.NewForConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to create metrics client: %w", err)
+	}
+
+	defaultClient = &Client{
+		clientset:     clientset,
+		metricsClient: metricsClient,
+		config:        config,
+	}
+
+	return nil
+}
+
+// GetClient returns the default client instance
+func GetClient() *Client {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
+	return defaultClient
+}
+
 func NewClient() (*Client, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	configOverrides := &clientcmd.ConfigOverrides{}

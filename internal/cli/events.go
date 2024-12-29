@@ -2,7 +2,7 @@ package cli
 
 import (
 	"fmt"
-	"k8stool/internal/k8s"
+	k8s "k8stool/internal/k8s/client"
 	"k8stool/pkg/utils"
 	"time"
 

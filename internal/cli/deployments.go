@@ -6,7 +6,7 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"k8stool/internal/k8s"
+	k8s "k8stool/internal/k8s/client"
 	"k8stool/pkg/utils"
 
 	"github.com/spf13/cobra"

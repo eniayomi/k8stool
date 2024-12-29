@@ -6,20 +6,20 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"k8stool/internal/k8s"
+	k8s "k8stool/internal/k8s/client"
 	"k8stool/pkg/utils"
 
 	"github.com/spf13/cobra"
 )
 
 func getPodsCmd() *cobra.Command {
+	var namespace string
 	var allNamespaces bool
-	var showMetrics bool
 	var labelSelector string
-	var statusFilter string
+	var fieldSelector string
 	var sortBy string
 	var reverse bool
-	var namespace string
+	var showMetrics bool
 
 	cmd := &cobra.Command{
 		Use:     "pods",
@@ -31,38 +31,39 @@ func getPodsCmd() *cobra.Command {
 				return err
 			}
 
-			// If namespace flag not provided, use the client's current namespace
+			// If namespace flag not provided and not all namespaces, use the client's current namespace
 			if !allNamespaces && namespace == "" {
 				namespace = client.GetNamespace()
 			}
 
-			pods, err := client.ListPods(namespace, allNamespaces, labelSelector, statusFilter)
+			pods, err := client.ListPods(namespace, allNamespaces, labelSelector, fieldSelector)
 			if err != nil {
 				return err
 			}
 
-			if showMetrics {
-				if err := client.AddPodMetrics(pods); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: Could not get metrics: %v\n", err)
-				}
-			}
-
-			// Sort pods
+			// Sort pods if requested
 			if err := sortPods(pods, sortBy, reverse); err != nil {
 				return err
 			}
 
-			return printPods(pods, showMetrics, allNamespaces)
+			// If metrics flag is set, add metrics information
+			if showMetrics {
+				if err := client.AddPodMetrics(pods); err != nil {
+					return fmt.Errorf("failed to get metrics: %v", err)
+				}
+			}
+
+			return printPods(pods, showMetrics)
 		},
 	}
 
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
 	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List pods in all namespaces")
-	cmd.Flags().BoolVar(&showMetrics, "metrics", false, "Show CPU and Memory metrics")
 	cmd.Flags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	cmd.Flags().StringVarP(&statusFilter, "status", "s", "", "Filter by status")
+	cmd.Flags().StringVarP(&fieldSelector, "field-selector", "f", "", "Field selector")
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by (name, status, age)")
 	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse sort order")
-	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
+	cmd.Flags().BoolVar(&showMetrics, "metrics", false, "Show resource metrics")
 
 	return cmd
 }
@@ -98,13 +99,13 @@ func sortPods(pods []k8s.Pod, sortBy string, reverse bool) error {
 	return nil
 }
 
-func printPods(pods []k8s.Pod, showMetrics bool, allNamespaces bool) error {
+func printPods(pods []k8s.Pod, showMetrics bool) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()
 
-	// Show namespace column if -A flag is used or pods are from different namespaces
-	showNamespace := allNamespaces
-	if !showNamespace && len(pods) > 0 {
+	// Check if we need to show namespace column by checking if pods are from different namespaces
+	showNamespace := false
+	if len(pods) > 0 {
 		ns := pods[0].Namespace
 		for _, pod := range pods[1:] {
 			if pod.Namespace != ns {
@@ -114,48 +115,41 @@ func printPods(pods []k8s.Pod, showMetrics bool, allNamespaces bool) error {
 		}
 	}
 
-	if showMetrics {
-		if showNamespace {
-			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tRESTARTS\tIP\tNODE\tCPU\tMEMORY\tAGE\tSTATUS")
+	// Print header based on what columns we're showing
+	if showNamespace {
+		if showMetrics {
+			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tRESTARTS\tAGE\tCPU\tMEMORY\tSTATUS")
 		} else {
-			fmt.Fprintln(w, "NAME\tREADY\tRESTARTS\tIP\tNODE\tCPU\tMEMORY\tAGE\tSTATUS")
+			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tRESTARTS\tAGE\tSTATUS")
 		}
 	} else {
-		if showNamespace {
-			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tRESTARTS\tIP\tNODE\tAGE\tSTATUS")
+		if showMetrics {
+			fmt.Fprintln(w, "NAME\tREADY\tRESTARTS\tAGE\tCPU\tMEMORY\tSTATUS")
 		} else {
-			fmt.Fprintln(w, "NAME\tREADY\tRESTARTS\tIP\tNODE\tAGE\tSTATUS")
+			fmt.Fprintln(w, "NAME\tREADY\tRESTARTS\tAGE\tSTATUS")
 		}
 	}
 
-	for _, pod := range pods {
-		age := utils.FormatDuration(pod.Age)
+	for _, p := range pods {
+		age := utils.FormatDuration(p.Age)
 
-		if showMetrics {
-			cpu := "<none>"
-			mem := "<none>"
-			if pod.Metrics != nil {
-				cpu = pod.Metrics.CPU
-				mem = pod.Metrics.Memory
-			}
-			if showNamespace {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					pod.Namespace, pod.Name, pod.Ready, pod.Restarts,
-					pod.IP, pod.Node, cpu, mem, age, pod.Status)
+		if showNamespace {
+			if showMetrics {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\n",
+					p.Namespace, p.Name, p.Ready, p.Restarts,
+					age, p.Metrics.CPU, p.Metrics.Memory, p.Status)
 			} else {
-				fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					pod.Name, pod.Ready, pod.Restarts,
-					pod.IP, pod.Node, cpu, mem, age, pod.Status)
+				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
+					p.Namespace, p.Name, p.Ready, p.Restarts, age, p.Status)
 			}
 		} else {
-			if showNamespace {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\n",
-					pod.Namespace, pod.Name, pod.Ready, pod.Restarts,
-					pod.IP, pod.Node, age, pod.Status)
-			} else {
+			if showMetrics {
 				fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\n",
-					pod.Name, pod.Ready, pod.Restarts,
-					pod.IP, pod.Node, age, pod.Status)
+					p.Name, p.Ready, p.Restarts, age,
+					p.Metrics.CPU, p.Metrics.Memory, p.Status)
+			} else {
+				fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n",
+					p.Name, p.Ready, p.Restarts, age, p.Status)
 			}
 		}
 	}

@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"k8stool/internal/k8s"
+	k8s "k8stool/internal/k8s/client"
 
 	"github.com/spf13/cobra"
 )
