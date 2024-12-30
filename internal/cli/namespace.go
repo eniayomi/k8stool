@@ -15,8 +15,10 @@ import (
 )
 
 func getNamespaceCmd() *cobra.Command {
+	var interactive bool
+
 	cmd := &cobra.Command{
-		Use:     "namespace",
+		Use:     "namespace [namespace_name]",
 		Aliases: []string{"ns"},
 		Short:   "Manage Kubernetes namespaces",
 		Long:    "Manage Kubernetes namespaces, including switching between namespaces and viewing namespace information.",
@@ -31,6 +33,84 @@ func getNamespaceCmd() *cobra.Command {
 				return fmt.Errorf("failed to initialize context service: %w", err)
 			}
 
+			// If interactive mode is requested or no args provided with -i flag
+			if interactive {
+				client, err := k8s.NewClient()
+				if err != nil {
+					return fmt.Errorf("failed to initialize client: %w", err)
+				}
+
+				namespaces, err := client.NamespaceService.List()
+				if err != nil {
+					return fmt.Errorf("failed to list namespaces: %w", err)
+				}
+
+				current, err := contextService.GetCurrent()
+				if err != nil {
+					return fmt.Errorf("failed to get current context: %w", err)
+				}
+
+				var options []string
+				for _, ns := range namespaces {
+					name := ns.Name
+					if name == current.Namespace {
+						name += " (current)"
+					}
+					options = append(options, name)
+				}
+
+				prompt := &promptui.Select{
+					Label: "Select namespace:",
+					Items: options,
+					Size:  10,
+					Templates: &promptui.SelectTemplates{
+						Active:   "→ {{ . | cyan }}",
+						Inactive: "  {{ . | white }}",
+						Selected: "✓ {{ . | green }}",
+					},
+				}
+
+				idx, _, err := prompt.Run()
+				if err != nil {
+					return fmt.Errorf("failed to get user input: %w", err)
+				}
+
+				// Extract namespace name from selected option
+				targetNamespace := strings.TrimSuffix(options[idx], " (current)")
+
+				if err := contextService.SetNamespace(targetNamespace); err != nil {
+					return fmt.Errorf("failed to switch namespace: %w", err)
+				}
+
+				fmt.Printf("Switched to namespace %q\n", targetNamespace)
+				return nil
+			}
+
+			// If a namespace is provided, switch to it
+			if len(args) > 0 {
+				targetNamespace := args[0]
+
+				// Initialize client to validate namespace
+				client, err := k8s.NewClient()
+				if err != nil {
+					return fmt.Errorf("failed to initialize client: %w", err)
+				}
+
+				// Validate namespace exists
+				_, err = client.NamespaceService.Get(targetNamespace)
+				if err != nil {
+					return fmt.Errorf("namespaces %q not found", targetNamespace)
+				}
+
+				if err := contextService.SetNamespace(targetNamespace); err != nil {
+					return fmt.Errorf("failed to switch namespace: %w", err)
+				}
+
+				fmt.Printf("Switched to namespace %q\n", targetNamespace)
+				return nil
+			}
+
+			// If no namespace provided, show current namespace
 			current, err := contextService.GetCurrent()
 			if err != nil {
 				return fmt.Errorf("failed to get current context: %w", err)
@@ -40,6 +120,9 @@ func getNamespaceCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	// Add flags
+	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Select namespace interactively")
 
 	// Add subcommands
 	cmd.AddCommand(getCurrentNamespaceCmd())
@@ -101,7 +184,6 @@ func listNamespacesCmd() *cobra.Command {
 		},
 	}
 }
-
 func switchNamespaceCmd() *cobra.Command {
 	var interactive bool
 
@@ -115,12 +197,12 @@ func switchNamespaceCmd() *cobra.Command {
 				return fmt.Errorf("failed to initialize context service: %w", err)
 			}
 
-			if interactive || len(args) == 0 {
-				client, err := k8s.NewClient()
-				if err != nil {
-					return fmt.Errorf("failed to initialize client: %w", err)
-				}
+			client, err := k8s.NewClient()
+			if err != nil {
+				return fmt.Errorf("failed to initialize client: %w", err)
+			}
 
+			if interactive || len(args) == 0 {
 				namespaces, err := client.NamespaceService.List()
 				if err != nil {
 					return fmt.Errorf("failed to list namespaces: %w", err)
@@ -166,6 +248,13 @@ func switchNamespaceCmd() *cobra.Command {
 				fmt.Printf("Switched to namespace %q\n", targetNamespace)
 			} else {
 				targetNamespace := args[0]
+
+				// Validate namespace exists
+				_, err := client.NamespaceService.Get(targetNamespace)
+				if err != nil {
+					return fmt.Errorf("namespaces %q not found", targetNamespace)
+				}
+
 				if err := contextService.SetNamespace(targetNamespace); err != nil {
 					return fmt.Errorf("failed to switch namespace: %w", err)
 				}

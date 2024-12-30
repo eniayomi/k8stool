@@ -5,14 +5,15 @@ The namespace command allows you to view, switch, and manage Kubernetes namespac
 ## Usage
 
 ```bash
-k8stool namespace [command]    # Long form
-k8stool ns [command]          # Short form
+k8stool namespace [namespace_name]    # Long form
+k8stool ns [namespace_name]          # Short form
 ```
 
 ## Available Commands
 
 ### Show Current Namespace
 ```bash
+k8stool ns
 k8stool ns current
 ```
 Shows the currently active namespace.
@@ -28,16 +29,19 @@ Lists all available namespaces with their status. Output includes:
 - Active status (*)
 
 ### Switch Namespace
-Direct switch:
+
+Direct switch (multiple formats):
 ```bash
-k8stool ns switch <namespace-name>
+k8stool ns <namespace-name>           # Direct switch (new shorthand)
+k8stool ns switch <namespace-name>    # Using switch subcommand
 ```
-Switch to a different namespace directly.
+Switch to a different namespace directly. The command will validate that the namespace exists before switching.
 
 Interactive switch:
 ```bash
-k8stool ns switch
-k8stool ns switch -i
+k8stool ns -i                  # Interactive shorthand
+k8stool ns switch             # Interactive with switch subcommand
+k8stool ns switch -i          # Interactive with flag
 ```
 Opens an interactive menu to select and switch namespaces. Features:
 - Shows current namespace with "(current)" suffix
@@ -72,6 +76,16 @@ The output includes:
 Example output when showing current namespace:
 ```
 Current namespace: production
+```
+
+Example output when switching namespace:
+```
+Switched to namespace "production"
+```
+
+Example error when namespace doesn't exist:
+```
+Error: namespaces "nonexistent" not found
 ```
 
 ## Related Commands

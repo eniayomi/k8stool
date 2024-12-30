@@ -131,7 +131,11 @@ k8stool context switch    # Long form
 k8stool ns
 k8stool namespace    # Long form
 
-# Switch namespace
+# List all namespaces
+k8stool ns list
+k8stool ns ls
+
+# Switch namespace directly
 k8stool ns production
 k8stool namespace production    # Long form
 

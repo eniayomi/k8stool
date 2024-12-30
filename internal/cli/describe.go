@@ -23,6 +23,8 @@ var resourceTypeAliases = map[string]string{
 }
 
 func getDescribeCmd() *cobra.Command {
+	var namespace string
+
 	cmd := &cobra.Command{
 		Use:     "describe TYPE NAME",
 		Aliases: []string{"desc"},
@@ -38,7 +40,10 @@ Examples:
   k8stool describe pod my-pod
 
   # Describe a deployment
-  k8stool describe deploy my-deployment`,
+  k8stool describe deploy my-deployment
+
+  # Describe a pod in a specific namespace
+  k8stool describe pod my-pod --namespace my-namespace`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := k8s.NewClient()
@@ -54,21 +59,25 @@ Examples:
 				resourceType = actualType
 			}
 
-			currentCtx, err := client.GetCurrentContext()
-			if err != nil {
-				return err
+			// Use provided namespace or fallback to current context's namespace
+			ns := namespace
+			if ns == "" {
+				currentCtx, err := client.GetCurrentContext()
+				if err != nil {
+					return err
+				}
+				ns = currentCtx.Namespace
 			}
-			namespace := currentCtx.Namespace
 
 			switch resourceType {
 			case "pod":
-				details, err := client.PodService.Describe(namespace, name)
+				details, err := client.PodService.Describe(ns, name)
 				if err != nil {
 					return err
 				}
 				return printPodDetails(details)
 			case "deployment":
-				details, err := client.DeploymentService.Describe(namespace, name)
+				details, err := client.DeploymentService.Describe(ns, name)
 				if err != nil {
 					return err
 				}
@@ -79,6 +88,7 @@ Examples:
 		},
 	}
 
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the resource")
 	return cmd
 }
 

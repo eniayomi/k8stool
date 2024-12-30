@@ -75,10 +75,10 @@ See [Context](commands/context.md) for more details.
 
 ### Manage Namespaces
 ```bash
-k8stool ns             # Show current namespace
-k8stool ns -l         # List all namespaces
-k8stool ns -i         # Interactive namespace switch
-k8stool ns <name>     # Switch to namespace
+k8stool ns                # Show current namespace
+k8stool ns list          # List all namespaces
+k8stool ns -i            # Interactive namespace switch
+k8stool ns <name>        # Switch to namespace directly
 ```
 See [Namespace](commands/namespace.md) for more details.
 
