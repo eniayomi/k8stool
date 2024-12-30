@@ -28,7 +28,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 	}{
 		{
 			name:    "describe pod",
-			args:    []string{"pod", "nginx"},
+			args:    []string{"pod", "curl-default"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Name:")
@@ -41,7 +41,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "describe deployment",
-			args:    []string{"deployment", "nginx"},
+			args:    []string{"deployment", "curl-default-deploy"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Name:")
@@ -70,7 +70,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "describe pod with invalid resource type",
-			args:    []string{"invalid-type", "nginx"},
+			args:    []string{"invalid-type", "curl-default"},
 			wantErr: true,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "unsupported resource type: invalid-type")
@@ -78,11 +78,11 @@ func TestDescribeCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "describe pod in different namespace",
-			args:    []string{"pod", "coredns", "--namespace", "kube-system"},
+			args:    []string{"pod", "curl-deploy", "--namespace", "integration-test"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Name:")
-				assert.Contains(t, output, "Namespace: kube-system")
+				assert.Contains(t, output, "Namespace: integration-test")
 				assert.Contains(t, output, "Node:")
 				assert.Contains(t, output, "Status:")
 				assert.Contains(t, output, "IP:")
@@ -91,11 +91,11 @@ func TestDescribeCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "describe deployment in different namespace",
-			args:    []string{"deployment", "coredns", "--namespace", "kube-system"},
+			args:    []string{"deployment", "curl-deploy", "--namespace", "integration-test"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Name:")
-				assert.Contains(t, output, "Namespace: kube-system")
+				assert.Contains(t, output, "Namespace: integration-test")
 				assert.Contains(t, output, "Replicas:")
 				assert.Contains(t, output, "Strategy")
 				assert.Contains(t, output, "Selector:")

@@ -30,12 +30,17 @@ jobs:
 
     - name: Kubectl checks
       run: |
+        sleep 10
+        kubectl create namespace integration-test
+        kubectl run curl-default --image=curlimages/curl --restart=Never
+        kubectl create deployment curl-default-deploy --image=curlimages/curl
+        kubectl run curl --image=curlimages/curl --restart=Never -n integration-test
+        kubectl create deployment curl-deploy --image=curlimages/curl -n integration-test
         sleep 30
-        kubectl get po -n default
-        kubectl get po -n kube-system
-        kubectl get deploy -n default
-        kubectl get deploy -n kube-system
-
+        kubectl get po
+        kubectl get po -n integration-test
+        kubectl get deploy
+        kubectl get deploy -n integration-test
     - name: Run integration tests with coverage report
       run: |
         go install github.com/jstemmer/go-junit-report@latest
