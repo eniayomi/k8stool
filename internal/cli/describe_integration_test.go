@@ -28,7 +28,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 	}{
 		{
 			name:    "describe pod",
-			args:    []string{"pod", "curl-default"},
+			args:    []string{"pod", "nginx-default"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Name:")
@@ -41,7 +41,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "describe deployment",
-			args:    []string{"deployment", "curl-default-deploy"},
+			args:    []string{"deployment", "nginx-default-deploy"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Name:")
@@ -70,7 +70,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "describe pod with invalid resource type",
-			args:    []string{"invalid-type", "curl-default"},
+			args:    []string{"invalid-type", "nginx-default"},
 			wantErr: true,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "unsupported resource type: invalid-type")
@@ -78,7 +78,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "describe pod in different namespace",
-			args:    []string{"pod", "curl-deploy", "--namespace", "integration-test"},
+			args:    []string{"pod", "nginx-deploy", "--namespace", "integration-test"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Name:")
@@ -91,7 +91,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "describe deployment in different namespace",
-			args:    []string{"deployment", "curl-deploy", "--namespace", "integration-test"},
+			args:    []string{"deployment", "nginx-deploy", "--namespace", "integration-test"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Name:")

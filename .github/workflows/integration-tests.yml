@@ -32,10 +32,10 @@ jobs:
       run: |
         sleep 10
         kubectl create namespace integration-test
-        kubectl run curl-default --image=curlimages/curl --restart=Never
-        kubectl create deployment curl-default-deploy --image=curlimages/curl
-        kubectl run curl --image=curlimages/curl --restart=Never -n integration-test
-        kubectl create deployment curl-deploy --image=curlimages/curl -n integration-test
+        kubectl run nginx-default --image=nginx:alpine --restart=Never
+        kubectl create deployment nginx-default-deploy --image=nginx:alpine
+        kubectl run nginx --image=nginx:alpine --restart=Never -n integration-test
+        kubectl create deployment nginx-deploy --image=nginx:alpine -n integration-test
         sleep 30
         kubectl get po
         kubectl get po -n integration-test
