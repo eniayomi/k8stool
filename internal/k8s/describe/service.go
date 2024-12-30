@@ -275,7 +275,7 @@ func (s *service) DescribeNode(ctx context.Context, name string) (*ResourceDescr
 		OSImage:                 node.Status.NodeInfo.OSImage,
 		ContainerRuntimeVersion: node.Status.NodeInfo.ContainerRuntimeVersion,
 		KubeletVersion:          node.Status.NodeInfo.KubeletVersion,
-		KubeProxyVersion:        node.Status.NodeInfo.KubeProxyVersion,
+		KubeProxyVersion:        "",
 		OperatingSystem:         node.Status.NodeInfo.OperatingSystem,
 		Architecture:            node.Status.NodeInfo.Architecture,
 	}

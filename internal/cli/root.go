@@ -59,6 +59,7 @@ func init() {
 	rootCmd.AddCommand(contextCmd())
 	rootCmd.AddCommand(versionCmd())
 	rootCmd.AddCommand(getNamespaceCmd())
+	rootCmd.AddCommand(getMetricsCmd())
 }
 
 // getCmd returns the get command
@@ -79,11 +80,6 @@ func getCmd() *cobra.Command {
 // describeCmd returns the describe command
 func describeCmd() *cobra.Command {
 	return getDescribeCmd()
-}
-
-// logsCmd returns the logs command
-func logsCmd() *cobra.Command {
-	return getLogsCmd()
 }
 
 // execCmd returns the exec command
@@ -123,29 +119,4 @@ func initializeClient() error {
 	}
 
 	return nil
-}
-
-func getRootCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "k8stool",
-		Short: "A CLI tool for managing Kubernetes resources",
-		Long: `k8stool is a command-line tool that provides a simplified interface for managing
-Kubernetes resources. It includes commands for viewing and managing pods,
-deployments, services, and more.`,
-	}
-
-	// Add commands
-	cmd.AddCommand(
-		getPodsCmd(),
-		getLogsCmd(),
-		getPortForwardCmd(),
-		getMetricsCmd(),
-		getContextCmd(),
-		getNamespaceCmd(),
-		getDescribeCmd(),
-		getEventsCmd(),
-		getExecCmd(),
-	)
-
-	return cmd
 }

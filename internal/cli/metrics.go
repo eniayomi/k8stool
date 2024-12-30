@@ -123,22 +123,6 @@ func printPodMetricsList(metrics []metrics.PodMetrics) error {
 	return nil
 }
 
-func printNodeMetrics(metrics *metrics.NodeMetrics) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
-
-	fmt.Fprintln(w, "NODE\tCPU(cores)\tCPU%\tMEMORY(bytes)\tMEMORY%\tPODS")
-	fmt.Fprintf(w, "%s\t%d\t%.1f%%\t%d\t%.1f%%\t%d\n",
-		metrics.Name,
-		metrics.Resources.CPU.UsageNanoCores/1e9, // Convert to cores
-		metrics.Resources.CPU.UsageCorePercent,
-		metrics.Resources.Memory.UsageBytes,
-		metrics.Resources.Memory.LimitUtilization*100,
-		metrics.PodCount)
-
-	return nil
-}
-
 func printNodeMetricsList(metrics []metrics.NodeMetrics) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()

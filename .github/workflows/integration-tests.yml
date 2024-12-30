@@ -28,6 +28,13 @@ jobs:
           --no-lb
           --k3s-arg "--disable=traefik,servicelb,metrics-server@server:*"
 
+    - name: Kubectl checks
+      run: |
+        kubectl get po -n default
+        kubectl get po -n kube-system
+        kubectl get deploy -n default
+        kubectl get deploy -n kube-system
+
     - name: Run integration tests with coverage report
       run: |
         go install github.com/jstemmer/go-junit-report@latest

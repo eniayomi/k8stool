@@ -6,13 +6,77 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	k8s "k8stool/internal/k8s/client"
 	"k8stool/internal/k8s/exec"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
+
+// terminalSizeQueue implements exec.TerminalSizeQueue
+type terminalSizeQueue struct {
+	sync.Mutex
+	sizes chan *exec.TerminalSize
+}
+
+func newTerminalSizeQueue() *terminalSizeQueue {
+	return &terminalSizeQueue{
+		sizes: make(chan *exec.TerminalSize, 1),
+	}
+}
+
+func (t *terminalSizeQueue) Next() *exec.TerminalSize {
+	size := <-t.sizes
+	return size
+}
+
+// handleTerminalResize handles terminal resize events for TTY sessions
+func handleTerminalResize(ctx context.Context, conn *exec.ExecConnection) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return
+	}
+
+	sizeQueue := newTerminalSizeQueue()
+	conn.TerminalSizeQueue = sizeQueue
+
+	// Get the initial terminal size
+	width, height, err := term.GetSize(int(os.Stdin.Fd()))
+	if err != nil {
+		return
+	}
+
+	// Send the initial size
+	sizeQueue.sizes <- &exec.TerminalSize{
+		Width:  uint16(width),
+		Height: uint16(height),
+	}
+
+	// Create a channel to receive window resize signals
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGWINCH)
+
+	go func() {
+		defer close(sizeQueue.sizes)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-sigCh:
+				width, height, err := term.GetSize(int(os.Stdin.Fd()))
+				if err != nil {
+					continue
+				}
+				sizeQueue.sizes <- &exec.TerminalSize{
+					Width:  uint16(width),
+					Height: uint16(height),
+				}
+			}
+		}
+	}()
+}
 
 func getExecCmd() *cobra.Command {
 	var container string
@@ -130,10 +194,8 @@ Examples:
 				}
 
 				// Handle TTY resize if needed
-				if tty {
-					// TODO: Implement terminal resize handling
-					// This would require implementing the TerminalSizeQueue interface
-					// and handling terminal window size changes
+				if tty && stdin {
+					go handleTerminalResize(ctx, conn)
 				}
 
 				// Copy stdin to the container if enabled
@@ -164,7 +226,7 @@ Examples:
 			}
 
 			if result.Error != "" {
-				return fmt.Errorf(result.Error)
+				return fmt.Errorf("exec error: %s", result.Error)
 			}
 
 			if result.ExitCode != 0 {

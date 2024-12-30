@@ -450,7 +450,7 @@ func (s *service) Exec(namespace, name, container string, opts ExecOptions) erro
 		return fmt.Errorf("failed to create executor: %w", err)
 	}
 
-	return exec.Stream(remotecommand.StreamOptions{
+	return exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdin:  opts.Stdin,
 		Stdout: opts.Stdout,
 		Stderr: opts.Stderr,
@@ -576,46 +576,6 @@ func (s *service) getContainerLogs(pod *corev1.Pod, containerName string, opts L
 
 	_, err = io.Copy(opts.Writer, stream)
 	return err
-}
-
-func getResourcesFromContainer(c corev1.Container) Resources {
-	return Resources{
-		Limits: Resource{
-			CPU:    c.Resources.Limits.Cpu().String(),
-			Memory: c.Resources.Limits.Memory().String(),
-		},
-		Requests: Resource{
-			CPU:    c.Resources.Requests.Cpu().String(),
-			Memory: c.Resources.Requests.Memory().String(),
-		},
-	}
-}
-
-func getVolumeMountsFromContainer(c corev1.Container) []VolumeMount {
-	var mounts []VolumeMount
-	for _, m := range c.VolumeMounts {
-		mount := VolumeMount{
-			Name:      m.Name,
-			MountPath: m.MountPath,
-			ReadOnly:  m.ReadOnly,
-		}
-		mounts = append(mounts, mount)
-	}
-	return mounts
-}
-
-func getPortsFromContainer(c corev1.Container) []ContainerPort {
-	var ports []ContainerPort
-	for _, p := range c.Ports {
-		port := ContainerPort{
-			Name:          p.Name,
-			HostPort:      p.HostPort,
-			ContainerPort: p.ContainerPort,
-			Protocol:      string(p.Protocol),
-		}
-		ports = append(ports, port)
-	}
-	return ports
 }
 
 func getContainerID(pod *corev1.Pod, containerName string) string {

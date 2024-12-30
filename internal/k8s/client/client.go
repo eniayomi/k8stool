@@ -245,7 +245,7 @@ func (c *Client) GetPodLogs(namespace, name string, container string, opts logs.
 
 	// Check for error in result
 	if result.Error != "" {
-		return fmt.Errorf(result.Error)
+		return fmt.Errorf("log error: %s", result.Error)
 	}
 
 	// Write logs to the provided writer or stdout
@@ -265,7 +265,7 @@ func (c *Client) ExecInPod(namespace, podName, containerName string, opts ExecOp
 		return err
 	}
 	if result.Error != "" {
-		return fmt.Errorf(result.Error)
+		return fmt.Errorf("exec error: %s", result.Error)
 	}
 	if result.ExitCode != 0 {
 		return fmt.Errorf("command exited with code %d", result.ExitCode)
