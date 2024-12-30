@@ -54,10 +54,10 @@ func (s *service) Exec(ctx context.Context, namespace, pod string, opts *ExecOpt
 	req.VersionedParams(&corev1.PodExecOptions{
 		Container: opts.Container,
 		Command:   opts.Command,
-		Stdin:     opts.Stdin,
-		Stdout:    stdout != nil,
-		Stderr:    stderr != nil,
-		TTY:       opts.TTY,
+		Stdin:     false,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       false,
 	}, scheme.ParameterCodec)
 
 	exec, err := remotecommand.NewSPDYExecutor(s.config, "POST", req.URL())
@@ -67,10 +67,10 @@ func (s *service) Exec(ctx context.Context, namespace, pod string, opts *ExecOpt
 
 	// Execute the command
 	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
-		Stdin:  opts.Streams.In,
+		Stdin:  nil,
 		Stdout: stdout,
 		Stderr: stderr,
-		Tty:    opts.TTY,
+		Tty:    false,
 	})
 
 	if err != nil {

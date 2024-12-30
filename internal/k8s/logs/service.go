@@ -36,29 +36,55 @@ func (s *service) GetLogs(ctx context.Context, namespace, pod string, opts *LogO
 		return nil, err
 	}
 
-	req := s.buildLogRequest(namespace, pod, opts)
-	logs, err := req.DoRaw(ctx)
+	// First check if the pod exists
+	podObj, err := s.clientset.CoreV1().Pods(namespace).Get(ctx, pod, metav1.GetOptions{})
 	if err != nil {
-		return &LogResult{
-			Error: err.Error(),
-		}, nil
+		return nil, fmt.Errorf("failed to find pod %s in namespace %s: %w", pod, namespace, err)
 	}
 
-	if opts.Writer != nil {
-		if _, err := opts.Writer.Write(logs); err != nil {
-			return &LogResult{
-				Error: fmt.Sprintf("failed to write logs: %v", err),
-			}, nil
+	// If container is specified, verify it exists in the pod
+	if opts.Container != "" {
+		containerExists := false
+		for _, container := range podObj.Spec.Containers {
+			if container.Name == opts.Container {
+				containerExists = true
+				break
+			}
+		}
+		if !containerExists {
+			return nil, fmt.Errorf("container %s not found in pod %s", opts.Container, pod)
 		}
 	}
 
-	return &LogResult{}, nil
+	req := s.buildLogRequest(namespace, pod, opts)
+	logs, err := req.DoRaw(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get logs: %w", err)
+	}
+
+	// Always write logs to the provided writer if one exists
+	if opts.Writer != nil {
+		if _, err := opts.Writer.Write(logs); err != nil {
+			return nil, fmt.Errorf("failed to write logs: %w", err)
+		}
+	}
+
+	// Return logs in the result
+	return &LogResult{
+		Logs: string(logs),
+	}, nil
 }
 
 // StreamLogs streams logs from a container in a pod
 func (s *service) StreamLogs(ctx context.Context, namespace, pod string, opts *LogOptions) (*LogConnection, error) {
 	if err := s.Validate(opts); err != nil {
 		return nil, err
+	}
+
+	// First check if the pod exists
+	_, err := s.clientset.CoreV1().Pods(namespace).Get(ctx, pod, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find pod %s in namespace %s: %w", pod, namespace, err)
 	}
 
 	req := s.buildLogRequest(namespace, pod, opts)

@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
-
 	k8s "k8stool/internal/k8s/client"
+
+	"github.com/spf13/cobra"
+	"k8s.io/client-go/util/homedir"
 )
 
 // Version information
@@ -53,56 +50,102 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "the namespace to use")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 
-	// Add the 'get' command as a parent command
-	getCmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get Kubernetes resources",
-		Long:  `Get Kubernetes resources such as pods, deployments, services, etc.`,
+	// Add commands to root
+	rootCmd.AddCommand(getCmd())
+	rootCmd.AddCommand(describeCmd())
+	rootCmd.AddCommand(getLogsCmd())
+	rootCmd.AddCommand(execCmd())
+	rootCmd.AddCommand(portForwardCmd())
+	rootCmd.AddCommand(contextCmd())
+	rootCmd.AddCommand(versionCmd())
+	rootCmd.AddCommand(getNamespaceCmd())
+}
+
+// getCmd returns the get command
+func getCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get (pods|deployments|events)",
+		Short: "Display one or many resources",
+		Long:  `Display one or many resources.`,
 	}
 
-	// Add resource commands to the 'get' command
-	getCmd.AddCommand(getPodsCmd())
-	getCmd.AddCommand(getDeploymentsCmd())
-	getCmd.AddCommand(getEventsCmd())
+	cmd.AddCommand(getPodsCmd())
+	cmd.AddCommand(getDeploymentsCmd())
+	cmd.AddCommand(getEventsCmd())
 
-	// Add commands to root
-	rootCmd.AddCommand(getCmd)
-	rootCmd.AddCommand(getLogsCmd())
-	rootCmd.AddCommand(getContextCmd())
-	rootCmd.AddCommand(getNamespaceCmd())
-	rootCmd.AddCommand(getDescribeCmd())
-	rootCmd.AddCommand(getMetricsCmd())
-	rootCmd.AddCommand(getExecCmd())
-	rootCmd.AddCommand(getPortForwardCmd())
-	rootCmd.AddCommand(getVersionCmd())
+	return cmd
+}
+
+// describeCmd returns the describe command
+func describeCmd() *cobra.Command {
+	return getDescribeCmd()
+}
+
+// logsCmd returns the logs command
+func logsCmd() *cobra.Command {
+	return getLogsCmd()
+}
+
+// execCmd returns the exec command
+func execCmd() *cobra.Command {
+	return getExecCmd()
+}
+
+// portForwardCmd returns the port-forward command
+func portForwardCmd() *cobra.Command {
+	return getPortForwardCmd()
+}
+
+// contextCmd returns the context command
+func contextCmd() *cobra.Command {
+	return getContextCmd()
+}
+
+// versionCmd returns the version command
+func versionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Long:  `Print version information.`,
+	}
+
+	cmd.AddCommand(getVersionCmd())
+
+	return cmd
 }
 
 // initializeClient initializes the Kubernetes client configuration
 func initializeClient() error {
-	var config *rest.Config
-	var err error
-
-	// Try to build config from kubeconfig file
-	if kubeconfig != "" {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	} else {
-		// Try in-cluster config
-		config, err = rest.InClusterConfig()
-	}
-	if err != nil {
-		return fmt.Errorf("failed to create config: %w", err)
-	}
-
-	// Create the clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return fmt.Errorf("failed to create client: %w", err)
-	}
-
 	// Initialize the client
-	if err := k8s.Initialize(clientset, config); err != nil {
+	_, err := k8s.NewClient()
+	if err != nil {
 		return fmt.Errorf("failed to initialize client: %w", err)
 	}
 
 	return nil
+}
+
+func getRootCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "k8stool",
+		Short: "A CLI tool for managing Kubernetes resources",
+		Long: `k8stool is a command-line tool that provides a simplified interface for managing
+Kubernetes resources. It includes commands for viewing and managing pods,
+deployments, services, and more.`,
+	}
+
+	// Add commands
+	cmd.AddCommand(
+		getPodsCmd(),
+		getLogsCmd(),
+		getPortForwardCmd(),
+		getMetricsCmd(),
+		getContextCmd(),
+		getNamespaceCmd(),
+		getDescribeCmd(),
+		getEventsCmd(),
+		getExecCmd(),
+	)
+
+	return cmd
 }

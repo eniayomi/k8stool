@@ -26,6 +26,18 @@ func newService(clientset *kubernetes.Clientset, config *rest.Config, kubeconfig
 	}
 }
 
+// NewContextOnlyService creates a new context service instance without requiring cluster access
+func NewContextOnlyService() (Service, error) {
+	// Load kubeconfig
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	configOverrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+
+	return &service{
+		kubeconfig: kubeConfig,
+	}, nil
+}
+
 // List returns all available contexts
 func (s *service) List() ([]Context, error) {
 	rawConfig, err := s.kubeconfig.RawConfig()
@@ -43,14 +55,6 @@ func (s *service) List() ([]Context, error) {
 			User:      ctx.AuthInfo,
 			Namespace: ctx.Namespace,
 			IsActive:  name == currentContext,
-		}
-
-		// Get cluster info if it's the current context
-		if name == currentContext {
-			clusterInfo, err := s.GetClusterInfo()
-			if err == nil {
-				context.ClusterInfo = *clusterInfo
-			}
 		}
 
 		contexts = append(contexts, context)
@@ -72,18 +76,12 @@ func (s *service) GetCurrent() (*Context, error) {
 		return nil, fmt.Errorf("current context %q not found", currentContext)
 	}
 
-	clusterInfo, err := s.GetClusterInfo()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster info: %w", err)
-	}
-
 	context := &Context{
-		Name:        currentContext,
-		Cluster:     ctx.Cluster,
-		User:        ctx.AuthInfo,
-		Namespace:   ctx.Namespace,
-		IsActive:    true,
-		ClusterInfo: *clusterInfo,
+		Name:      currentContext,
+		Cluster:   ctx.Cluster,
+		User:      ctx.AuthInfo,
+		Namespace: ctx.Namespace,
+		IsActive:  true,
 	}
 
 	return context, nil
@@ -119,11 +117,16 @@ func (s *service) SetNamespace(namespace string) error {
 	}
 
 	currentContext := config.CurrentContext
-	if ctx, exists := config.Contexts[currentContext]; exists {
-		ctx.Namespace = namespace
-	} else {
-		return fmt.Errorf("current context not found")
+	if currentContext == "" {
+		return fmt.Errorf("no current context")
 	}
+
+	ctx, exists := config.Contexts[currentContext]
+	if !exists {
+		return fmt.Errorf("current context %q not found", currentContext)
+	}
+
+	ctx.Namespace = namespace
 
 	if err := clientcmd.ModifyConfig(configAccess, *config, true); err != nil {
 		return fmt.Errorf("failed to modify kubeconfig: %w", err)
@@ -134,40 +137,24 @@ func (s *service) SetNamespace(namespace string) error {
 
 // GetClusterInfo returns information about the current cluster
 func (s *service) GetClusterInfo() (*ClusterInfo, error) {
-	rawConfig, err := s.kubeconfig.RawConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get kubeconfig: %w", err)
+	if s.clientset == nil {
+		return nil, nil
 	}
-
-	currentContext := rawConfig.CurrentContext
-	ctx := rawConfig.Contexts[currentContext]
-	cluster := rawConfig.Clusters[ctx.Cluster]
 
 	version, err := s.clientset.Discovery().ServerVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server version: %w", err)
 	}
 
-	nodeList, err := s.clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	nodes, err := s.clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
 
-	var platform string
-	if len(nodeList.Items) > 0 {
-		platform = nodeList.Items[0].Status.NodeInfo.OperatingSystem
-	}
-
-	info := &ClusterInfo{
-		Server:                cluster.Server,
-		CertificateAuthority:  cluster.CertificateAuthority,
-		InsecureSkipTLSVerify: cluster.InsecureSkipTLSVerify,
-		APIVersion:            version.String(),
-		MasterVersion:         version.GitVersion,
-		Platform:              platform,
-	}
-
-	return info, nil
+	return &ClusterInfo{
+		Version:   version.String(),
+		NodeCount: len(nodes.Items),
+	}, nil
 }
 
 // Sort sorts contexts based on the given option
@@ -181,12 +168,9 @@ func (s *service) Sort(contexts []Context, sortBy ContextSortOption) []Context {
 		sort.Slice(contexts, func(i, j int) bool {
 			return contexts[i].Cluster < contexts[j].Cluster
 		})
-	case SortByActive:
+	case SortByNamespace:
 		sort.Slice(contexts, func(i, j int) bool {
-			if contexts[i].IsActive != contexts[j].IsActive {
-				return contexts[i].IsActive
-			}
-			return contexts[i].Name < contexts[j].Name
+			return contexts[i].Namespace < contexts[j].Namespace
 		})
 	}
 	return contexts

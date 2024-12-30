@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	k8s "k8stool/internal/k8s/client"
@@ -21,13 +22,20 @@ func getLogsCmd() *cobra.Command {
 	var allContainers bool
 
 	cmd := &cobra.Command{
-		Use:   "logs (pod|deployment) [name]",
+		Use:   "logs (pod|deployment)/(name) or (pod|deployment) [name]",
 		Short: "View logs from containers",
 		Long: `View logs from containers in pods or deployments.
-Example: k8stool logs pod nginx-pod
-         k8stool logs deployment nginx
-         k8stool logs deploy nginx`,
-		Args: cobra.ExactArgs(2),
+Examples:
+  # Get logs from a pod
+  k8stool logs pod/nginx-pod
+  k8stool logs pod nginx-pod
+
+  # Get logs from a deployment
+  k8stool logs deployment/nginx
+  k8stool logs deployment nginx
+  k8stool logs deploy/nginx
+  k8stool logs deploy nginx`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := k8s.NewClient()
 			if err != nil {
@@ -36,11 +44,24 @@ Example: k8stool logs pod nginx-pod
 
 			// If namespace flag not provided, use the client's current namespace
 			if namespace == "" {
-				namespace = client.GetNamespace()
+				namespace = client.GetCurrentNamespace()
 			}
 
-			resourceType := args[0]
-			name := args[1]
+			// Parse resource type and name
+			var resourceType, name string
+			if len(args) == 1 {
+				// Handle slash format: pod/nginx-pod
+				parts := strings.SplitN(args[0], "/", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid resource format. Use 'pod/name' or 'deployment/name' or 'pod name' or 'deployment name'")
+				}
+				resourceType = parts[0]
+				name = parts[1]
+			} else {
+				// Handle space format: pod nginx-pod
+				resourceType = args[0]
+				name = args[1]
+			}
 
 			// Parse time filters
 			var sinceSeconds *int64
@@ -63,12 +84,18 @@ Example: k8stool logs pod nginx-pod
 				startTime = &t
 			}
 
+			// Handle tail lines
+			var tailLines *int64
+			if tail >= 0 {
+				tailLines = &tail
+			}
+
 			switch resourceType {
 			case "pod", "po":
 				return client.GetPodLogs(namespace, name, container, k8s.LogOptions{
 					Follow:       follow,
 					Previous:     previous,
-					TailLines:    tail,
+					TailLines:    tailLines,
 					Writer:       os.Stdout,
 					SinceTime:    startTime,
 					SinceSeconds: sinceSeconds,
@@ -77,7 +104,7 @@ Example: k8stool logs pod nginx-pod
 				return client.GetDeploymentLogs(namespace, name, k8s.LogOptions{
 					Follow:        follow,
 					Previous:      previous,
-					TailLines:     tail,
+					TailLines:     tailLines,
 					Writer:        os.Stdout,
 					SinceTime:     startTime,
 					SinceSeconds:  sinceSeconds,

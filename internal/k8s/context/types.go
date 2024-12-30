@@ -10,24 +10,20 @@ type Context struct {
 	ClusterInfo ClusterInfo
 }
 
-// ClusterInfo contains information about the Kubernetes cluster
+// ClusterInfo contains information about a Kubernetes cluster
 type ClusterInfo struct {
-	Server                string
-	CertificateAuthority  string
-	InsecureSkipTLSVerify bool
-	APIVersion            string
-	MasterVersion         string
-	Platform              string
+	Version   string
+	NodeCount int
 }
 
-// ContextSortOption represents context sorting options
-type ContextSortOption string
+// ContextSortOption defines how contexts should be sorted
+type ContextSortOption int
 
 const (
 	// SortByName sorts contexts by name
-	SortByName ContextSortOption = "name"
+	SortByName ContextSortOption = iota
 	// SortByCluster sorts contexts by cluster name
-	SortByCluster ContextSortOption = "cluster"
-	// SortByActive sorts contexts by active status (active first)
-	SortByActive ContextSortOption = "active"
+	SortByCluster
+	// SortByNamespace sorts contexts by namespace
+	SortByNamespace
 )

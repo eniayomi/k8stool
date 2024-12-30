@@ -1,78 +1,102 @@
-# Log Commands
+# Logs Commands
 
-Commands for viewing and following container logs.
+Commands for viewing container logs from pods and deployments.
 
-## View Logs
+## Usage
 
 ```bash
-k8stool logs <pod-name> [flags]
+k8stool logs (pod|deployment)/(name) [flags]
+k8stool logs (pod|deployment) [name] [flags]
+```
+
+## Available Commands
+
+### View Pod Logs
+```bash
+# Using slash format
+k8stool logs pod/nginx-pod
+k8stool logs po/nginx-pod
+
+# Using space format
+k8stool logs pod nginx-pod
+k8stool logs po nginx-pod
+```
+
+### View Deployment Logs
+```bash
+# Using slash format
+k8stool logs deployment/nginx
+k8stool logs deploy/nginx
+
+# Using space format
+k8stool logs deployment nginx
+k8stool logs deploy nginx
 ```
 
 ### Flags
 | Flag | Short | Description | Default |
 |------|-------|-------------|---------|
-| `--follow` | `-f` | Stream logs in real-time | `false` |
-| `--previous` | `-p` | Show previous container logs | `false` |
-| `--container` | `-c` | Specific container name | - |
-| `--tail` | - | Number of lines to show | `all` |
-| `--since` | - | Show logs since duration | - |
-| `--since-time` | - | Show logs since timestamp | - |
-| `--namespace` | `-n` | Target namespace | `default` |
+| `--namespace` | `-n` | Target namespace | Current namespace |
+| `--container` | `-c` | Print logs of this container | First container |
+| `--follow` | `-f` | Follow log output | `false` |
+| `--previous` | `-p` | Print logs of previous instance | `false` |
+| `--tail` | `-t` | Lines of recent log file to display | `-1` (all) |
+| `--since` | - | Show logs since duration (e.g. 1h, 5m, 30s) | - |
+| `--since-time` | - | Show logs since specific time (RFC3339) | - |
+| `--all-containers` | `-a` | Get logs from all containers (deployment only) | `false` |
 
 ### Examples
 
 View pod logs:
 ```bash
-k8stool logs nginx-pod
+# Basic pod logs
+k8stool logs pod/nginx-pod
+k8stool logs pod nginx-pod
+
+# Follow log output
+k8stool logs pod/nginx-pod -f
+
+# View previous container logs
+k8stool logs pod/nginx-pod -p
+
+# Show specific number of lines
+k8stool logs pod/nginx-pod --tail 100
+
+# View logs from specific container
+k8stool logs pod/nginx-pod -c nginx
+
+# Time-based log filtering
+k8stool logs pod/nginx-pod --since 1h
+k8stool logs pod/nginx-pod --since 5m
+k8stool logs pod/nginx-pod --since-time "2024-01-20T15:04:05Z"
 ```
 
-Follow log output in real-time:
+View deployment logs:
 ```bash
-k8stool logs nginx-pod -f
-k8stool logs nginx-pod --follow
+# Basic deployment logs
+k8stool logs deployment/nginx
+k8stool logs deploy nginx
+
+# View logs from all containers
+k8stool logs deployment/nginx -a
+
+# Follow logs from specific container
+k8stool logs deployment/nginx -c nginx -f
+
+# Show recent logs
+k8stool logs deployment/nginx --tail 50
 ```
 
-View previous container logs:
-```bash
-k8stool logs nginx-pod -p
-k8stool logs nginx-pod --previous
-```
+## Output
 
-Show specific number of lines:
-```bash
-k8stool logs nginx-pod --tail 100
-```
-
-View logs from specific container:
-```bash
-k8stool logs nginx-pod -c nginx
-k8stool logs nginx-pod --container nginx
-```
-
-Time-based filtering:
-```bash
-k8stool logs nginx-pod --since 1h      # Last hour
-k8stool logs nginx-pod --since 5m      # Last 5 minutes
-k8stool logs nginx-pod --since-time "2024-01-20T15:04:05Z"
-```
-
-## Duration Format
-
-The `--since` flag accepts various duration formats:
-- `h`: Hours (e.g., `1h`, `24h`)
-- `m`: Minutes (e.g., `5m`, `30m`)
-- `s`: Seconds (e.g., `30s`, `90s`)
-
-## Timestamp Format
-
-The `--since-time` flag accepts RFC3339 format:
-```bash
-YYYY-MM-DDTHH:MM:SSZ
-# Example: 2024-01-20T15:04:05Z
-```
+The output includes:
+- Container logs with timestamps (if enabled)
+- Color-coded log levels (if log format supports it)
+- Real-time streaming (with --follow)
+- Previous container logs (with --previous)
 
 ## Related Commands
 
 - [Pods](pods.md): List and manage pods
-- [Events](events.md): View pod events
-- [Describe](describe.md): Get detailed pod information 
+- [Deployments](deployments.md): List and manage deployments
+- [Describe](describe.md): Get detailed resource information 

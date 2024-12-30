@@ -1,40 +1,49 @@
 # Namespace Commands
 
-Commands for managing Kubernetes namespace selection.
+The namespace command allows you to view, switch, and manage Kubernetes namespaces.
 
-## Namespace Operations
+## Usage
 
 ```bash
-k8stool ns [command]
 k8stool namespace [command]    # Long form
+k8stool ns [command]          # Short form
 ```
 
-### Commands
-| Command | Description |
-|---------|-------------|
-| (no args) | Show current namespace |
-| `<namespace-name>` | Switch to specific namespace |
-| `-i, --interactive` | Interactive namespace selection |
+## Available Commands
 
-### Examples
-
-Show current namespace:
+### Show Current Namespace
 ```bash
-k8stool ns
-k8stool namespace
+k8stool ns current
 ```
+Shows the currently active namespace.
 
-Switch to specific namespace:
+### List Namespaces
 ```bash
-k8stool ns production
-k8stool namespace production
+k8stool ns list
+k8stool ns ls
 ```
+Lists all available namespaces with their status. Output includes:
+- Namespace name
+- Status
+- Active status (*)
 
-Interactive namespace selection:
+### Switch Namespace
+Direct switch:
 ```bash
-k8stool ns -i
-k8stool namespace --interactive
+k8stool ns switch <namespace-name>
 ```
+Switch to a different namespace directly.
+
+Interactive switch:
+```bash
+k8stool ns switch
+k8stool ns switch -i
+```
+Opens an interactive menu to select and switch namespaces. Features:
+- Shows current namespace with "(current)" suffix
+- Uses colored output for better visibility
+- Shows 10 namespaces at a time
+- Uses emoji indicators for selection
 
 ## Interactive Mode Features
 
@@ -46,29 +55,25 @@ The interactive mode provides:
 
 Example output:
 ```
-Select Kubernetes namespace:
+Select namespace:
   default
+👉 production (current)
   kube-system
-> production
-  staging
+  monitoring
 ```
 
 ## Output
 
 The output includes:
 - Namespace name
-- Status (Active)
-- Age
+- Status (color-coded)
+- Active status (*)
 
 Example output when showing current namespace:
 ```
 Current namespace: production
-Status: Active
-Age: 30d
 ```
 
 ## Related Commands
 
 - [Context](context.md): Manage context selection
-- [Pods](pods.md): List pods in namespace
-- [Deployments](deployments.md): List deployments in namespace 

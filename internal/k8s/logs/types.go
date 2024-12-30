@@ -34,12 +34,15 @@ type LogOptions struct {
 
 	// Writer specifies where to write the logs
 	Writer io.Writer `json:"-"`
+
+	// AllContainers indicates whether to get logs from all containers in the pod
+	AllContainers bool `json:"allContainers,omitempty"`
 }
 
-// LogResult represents the result of a log retrieval operation
+// LogResult contains the result of a log request
 type LogResult struct {
-	// Error is any error that occurred during log retrieval
-	Error string `json:"error,omitempty"`
+	Error string
+	Logs  string
 }
 
 // LogConnection represents an active log streaming connection

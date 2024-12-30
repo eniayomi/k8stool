@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	metrics "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
@@ -185,19 +186,86 @@ func (s *service) Sort(podMetrics []PodMetrics, sortBy MetricsSortOption) []PodM
 // Helper functions for calculating metrics
 
 func (s *service) calculateContainerMetrics(containerMetrics interface{}, pod *corev1.Pod) ResourceMetrics {
-	// Implementation depends on the metrics API version and structure
-	// This is a placeholder that needs to be implemented based on the actual metrics API
-	return ResourceMetrics{}
+	metrics, ok := containerMetrics.(metricsv1beta1.ContainerMetrics)
+	if !ok {
+		return ResourceMetrics{}
+	}
+
+	// Find container spec for resource requests/limits
+	var containerSpec *corev1.Container
+	for _, c := range pod.Spec.Containers {
+		if c.Name == metrics.Name {
+			containerSpec = &c
+			break
+		}
+	}
+
+	cpuMetrics := CPUMetrics{
+		UsageNanoCores: metrics.Usage.Cpu().MilliValue() * 1000000, // Convert millicores to nanocores
+	}
+
+	memoryMetrics := MemoryMetrics{
+		UsageBytes: metrics.Usage.Memory().Value(),
+	}
+
+	// Calculate resource utilization if requests/limits are set
+	if containerSpec != nil {
+		if request := containerSpec.Resources.Requests.Cpu(); request != nil {
+			cpuMetrics.RequestMilliCores = request.MilliValue()
+			if cpuMetrics.RequestMilliCores > 0 {
+				cpuMetrics.RequestUtilization = float64(cpuMetrics.UsageNanoCores) / float64(cpuMetrics.RequestMilliCores*1000000)
+			}
+		}
+		if limit := containerSpec.Resources.Limits.Cpu(); limit != nil {
+			cpuMetrics.LimitMilliCores = limit.MilliValue()
+			if cpuMetrics.LimitMilliCores > 0 {
+				cpuMetrics.LimitUtilization = float64(cpuMetrics.UsageNanoCores) / float64(cpuMetrics.LimitMilliCores*1000000)
+			}
+		}
+
+		if request := containerSpec.Resources.Requests.Memory(); request != nil {
+			memoryMetrics.RequestBytes = request.Value()
+			if memoryMetrics.RequestBytes > 0 {
+				memoryMetrics.RequestUtilization = float64(memoryMetrics.UsageBytes) / float64(memoryMetrics.RequestBytes)
+			}
+		}
+		if limit := containerSpec.Resources.Limits.Memory(); limit != nil {
+			memoryMetrics.LimitBytes = limit.Value()
+			if memoryMetrics.LimitBytes > 0 {
+				memoryMetrics.LimitUtilization = float64(memoryMetrics.UsageBytes) / float64(memoryMetrics.LimitBytes)
+			}
+		}
+	}
+
+	return ResourceMetrics{
+		CPU:    cpuMetrics,
+		Memory: memoryMetrics,
+	}
 }
 
 func (s *service) calculateNodeMetrics(nodeMetrics interface{}) ResourceMetrics {
-	// Implementation depends on the metrics API version and structure
-	// This is a placeholder that needs to be implemented based on the actual metrics API
-	return ResourceMetrics{}
+	metrics, ok := nodeMetrics.(*metricsv1beta1.NodeMetrics)
+	if !ok {
+		return ResourceMetrics{}
+	}
+
+	return ResourceMetrics{
+		CPU: CPUMetrics{
+			UsageNanoCores: metrics.Usage.Cpu().MilliValue() * 1000000,
+		},
+		Memory: MemoryMetrics{
+			UsageBytes: metrics.Usage.Memory().Value(),
+		},
+	}
 }
 
 func (s *service) calculateNodeResourceMetrics(resources corev1.ResourceList) ResourceMetrics {
-	// Implementation depends on the resource conversion logic
-	// This is a placeholder that needs to be implemented based on the actual resource types
-	return ResourceMetrics{}
+	return ResourceMetrics{
+		CPU: CPUMetrics{
+			LimitMilliCores: resources.Cpu().MilliValue(),
+		},
+		Memory: MemoryMetrics{
+			LimitBytes: resources.Memory().Value(),
+		},
+	}
 }

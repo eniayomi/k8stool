@@ -7,6 +7,7 @@ import (
 	"text/tabwriter"
 
 	k8s "k8stool/internal/k8s/client"
+	"k8stool/internal/k8s/deployments"
 	"k8stool/pkg/utils"
 
 	"github.com/spf13/cobra"
@@ -15,15 +16,15 @@ import (
 func getDeploymentsCmd() *cobra.Command {
 	var namespace string
 	var allNamespaces bool
-	var labelSelector string
+	var selector string
 	var sortBy string
 	var reverse bool
 	var showMetrics bool
 
 	cmd := &cobra.Command{
 		Use:     "deployments",
-		Aliases: []string{"deployment", "deploy"},
-		Short:   "List deployments",
+		Aliases: []string{"deploy"},
+		Short:   "Get deployments",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := k8s.NewClient()
 			if err != nil {
@@ -32,33 +33,38 @@ func getDeploymentsCmd() *cobra.Command {
 
 			// If namespace flag not provided and not all namespaces, use the client's current namespace
 			if !allNamespaces && namespace == "" {
-				namespace = client.GetNamespace()
+				ctx, err := client.GetCurrentContext()
+				if err != nil {
+					return err
+				}
+				namespace = ctx.Namespace
 			}
 
-			deployments, err := client.ListDeployments(namespace, allNamespaces, labelSelector)
+			// List deployments using the deployments service
+			deploymentList, err := client.DeploymentService.List(namespace, allNamespaces, selector)
 			if err != nil {
 				return err
 			}
 
 			// Sort deployments if requested
-			if err := sortDeployments(deployments, sortBy, reverse); err != nil {
+			if err := sortDeployments(deploymentList, sortBy, reverse); err != nil {
 				return err
 			}
 
 			// If metrics flag is set, add metrics information
 			if showMetrics {
-				if err := client.AddDeploymentMetrics(deployments); err != nil {
+				if err := client.DeploymentService.AddMetrics(deploymentList); err != nil {
 					return fmt.Errorf("failed to get metrics: %v", err)
 				}
 			}
 
-			return printDeployments(deployments, showMetrics)
+			return printDeployments(deploymentList, showMetrics)
 		},
 	}
 
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
-	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List deployments in all namespaces")
-	cmd.Flags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
+	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List deployments across all namespaces")
+	cmd.Flags().StringVarP(&selector, "selector", "l", "", "Selector (label query) to filter on")
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by (name, status, age)")
 	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse sort order")
 	cmd.Flags().BoolVar(&showMetrics, "metrics", false, "Show resource metrics")
@@ -66,7 +72,7 @@ func getDeploymentsCmd() *cobra.Command {
 	return cmd
 }
 
-func sortDeployments(deployments []k8s.Deployment, sortBy string, reverse bool) error {
+func sortDeployments(deployments []deployments.Deployment, sortBy string, reverse bool) error {
 	switch sortBy {
 	case "":
 		return nil
@@ -97,7 +103,7 @@ func sortDeployments(deployments []k8s.Deployment, sortBy string, reverse bool) 
 	return nil
 }
 
-func printDeployments(deployments []k8s.Deployment, showMetrics bool) error {
+func printDeployments(deployments []deployments.Deployment, showMetrics bool) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()
 
@@ -116,13 +122,13 @@ func printDeployments(deployments []k8s.Deployment, showMetrics bool) error {
 	// Print header based on what columns we're showing
 	if showNamespace {
 		if showMetrics {
-			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tSTATUS\tCPU\tMEMORY")
+			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tCPU\tMEMORY\tSTATUS")
 		} else {
 			fmt.Fprintln(w, "NAMESPACE\tNAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tSTATUS")
 		}
 	} else {
 		if showMetrics {
-			fmt.Fprintln(w, "NAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tSTATUS\tCPU\tMEMORY")
+			fmt.Fprintln(w, "NAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tCPU\tMEMORY\tSTATUS")
 		} else {
 			fmt.Fprintln(w, "NAME\tREADY\tUP-TO-DATE\tAVAILABLE\tAGE\tSTATUS")
 		}
@@ -133,26 +139,30 @@ func printDeployments(deployments []k8s.Deployment, showMetrics bool) error {
 		age := utils.FormatDuration(d.Age)
 
 		if showNamespace {
-			if showMetrics {
+			if showMetrics && d.Metrics != nil {
 				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t%s\t%s\t%s\t%s\n",
 					d.Namespace, d.Name, ready, d.UpdatedReplicas,
-					d.AvailableReplicas, age, d.Status,
-					d.Metrics.CPU, d.Metrics.Memory)
+					d.AvailableReplicas, age,
+					d.Metrics.CPU, d.Metrics.Memory,
+					utils.ColorizeStatus(d.Status))
 			} else {
 				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t%s\t%s\n",
 					d.Namespace, d.Name, ready, d.UpdatedReplicas,
-					d.AvailableReplicas, age, d.Status)
+					d.AvailableReplicas, age,
+					utils.ColorizeStatus(d.Status))
 			}
 		} else {
-			if showMetrics {
+			if showMetrics && d.Metrics != nil {
 				fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\t%s\t%s\t%s\n",
 					d.Name, ready, d.UpdatedReplicas,
-					d.AvailableReplicas, age, d.Status,
-					d.Metrics.CPU, d.Metrics.Memory)
+					d.AvailableReplicas, age,
+					d.Metrics.CPU, d.Metrics.Memory,
+					utils.ColorizeStatus(d.Status))
 			} else {
 				fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\t%s\n",
 					d.Name, ready, d.UpdatedReplicas,
-					d.AvailableReplicas, age, d.Status)
+					d.AvailableReplicas, age,
+					utils.ColorizeStatus(d.Status))
 			}
 		}
 	}
