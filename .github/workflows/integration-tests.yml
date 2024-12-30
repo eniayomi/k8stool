@@ -30,6 +30,7 @@ jobs:
 
     - name: Kubectl checks
       run: |
+        sleep 30
         kubectl get po -n default
         kubectl get po -n kube-system
         kubectl get deploy -n default
