@@ -31,7 +31,7 @@ jobs:
     - name: Run integration tests with coverage report
       run: |
         go install github.com/jstemmer/go-junit-report@latest
-        go test -v ./... -tags=integration -coverprofile=coverage.txt -covermode=atomic | go-junit-report -set-exit-code > report.xml  
+        go test -v ./... -tags=integration
 
     - name: Test Summary
       uses: test-summary/action@v1
