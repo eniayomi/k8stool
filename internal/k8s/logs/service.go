@@ -56,6 +56,31 @@ func (s *service) GetLogs(ctx context.Context, namespace, pod string, opts *LogO
 		}
 	}
 
+	// For previous logs, verify the container has terminated
+	if opts.Previous {
+		containerName := opts.Container
+		if containerName == "" && len(podObj.Spec.Containers) > 0 {
+			containerName = podObj.Spec.Containers[0].Name
+		}
+
+		var containerStatus *corev1.ContainerStatus
+		for _, status := range podObj.Status.ContainerStatuses {
+			if status.Name == containerName {
+				containerStatus = &status
+				break
+			}
+		}
+
+		if containerStatus == nil {
+			return nil, fmt.Errorf("container status not found for %s", containerName)
+		}
+
+		// Check if the container has any terminated states
+		if containerStatus.LastTerminationState.Terminated == nil && containerStatus.State.Terminated == nil {
+			return nil, fmt.Errorf("no previous terminated state found for container %s", containerName)
+		}
+	}
+
 	req := s.buildLogRequest(namespace, pod, opts)
 	logs, err := req.DoRaw(ctx)
 	if err != nil {
