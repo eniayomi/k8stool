@@ -34,9 +34,9 @@ jobs:
         kubectl get ns
         kubectl config set-context --current --namespace=default
         kubectl create namespace integration-test
-        kubectl run nginx-default --image=nginx:alpine --restart=Never
+        kubectl run nginx-default --image=nginx:alpine --restart=Never --port=80
         kubectl create deployment nginx-default-deploy --image=nginx:alpine
-        kubectl run nginx --image=nginx:alpine --restart=Never -n integration-test
+        kubectl run nginx --image=nginx:alpine --restart=Never --port=80 -n integration-test
         kubectl create deployment nginx-deploy --image=nginx:alpine -n integration-test
         sleep 30
         kubectl get po
@@ -52,7 +52,7 @@ jobs:
       uses: test-summary/action@v1
       with:
         paths: |
-          ./report.xml            
+          ./report.xml   
       if: always()
 
 
