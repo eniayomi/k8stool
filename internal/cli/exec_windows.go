@@ -1,13 +1,11 @@
-//go:build !windows
-// +build !windows
+//go:build windows
+// +build windows
 
 package cli
 
 import (
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 
 	k8s "k8stool/internal/k8s/client"
 	"k8stool/internal/k8s/pods"
@@ -66,11 +64,6 @@ func getExecCmd() *cobra.Command {
 			if !containerExists {
 				return fmt.Errorf("container %q not found in pod %q", container, podName)
 			}
-
-			// Set up signal handling
-			sigChan := make(chan os.Signal, 1)
-			signal.Notify(sigChan, syscall.SIGWINCH)
-			defer signal.Stop(sigChan)
 
 			// Create exec options
 			execOpts := pods.ExecOptions{
