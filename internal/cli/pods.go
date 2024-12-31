@@ -19,6 +19,7 @@ func getPodsCmd() *cobra.Command {
 	var sortBy string
 	var reverse bool
 	var showMetrics bool
+	var namespace string
 
 	cmd := &cobra.Command{
 		Use:     "pods",
@@ -31,7 +32,6 @@ func getPodsCmd() *cobra.Command {
 			}
 
 			// Get namespace from flag or current context
-			namespace := cmd.Flag("namespace").Value.String()
 			if !allNamespaces && namespace == "" {
 				currentCtx, err := client.ContextService.GetCurrent()
 				if err != nil {
@@ -48,29 +48,30 @@ func getPodsCmd() *cobra.Command {
 
 			// Sort pods if requested
 			if sortBy != "" {
-				sort.Slice(podList, func(i, j int) bool {
-					var result bool
-					switch sortBy {
-					case "name":
-						result = podList[i].Name < podList[j].Name
-					case "status":
-						result = podList[i].Status < podList[j].Status
-					case "age":
-						result = podList[i].Age < podList[j].Age
-					default:
-						return false
-					}
-					if reverse {
-						return !result
-					}
-					return result
-				})
-			}
-
-			// Add metrics if requested
-			if showMetrics {
-				if err := client.PodService.AddMetrics(podList); err != nil {
-					return fmt.Errorf("failed to get metrics: %v", err)
+				switch sortBy {
+				case "name":
+					sort.Slice(podList, func(i, j int) bool {
+						if reverse {
+							return podList[i].Name > podList[j].Name
+						}
+						return podList[i].Name < podList[j].Name
+					})
+				case "status":
+					sort.Slice(podList, func(i, j int) bool {
+						if reverse {
+							return podList[i].Status > podList[j].Status
+						}
+						return podList[i].Status < podList[j].Status
+					})
+				case "age":
+					sort.Slice(podList, func(i, j int) bool {
+						if reverse {
+							return podList[i].Age < podList[j].Age
+						}
+						return podList[i].Age > podList[j].Age
+					})
+				default:
+					return fmt.Errorf("invalid sort key: %s", sortBy)
 				}
 			}
 
@@ -78,11 +79,12 @@ func getPodsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List pods across all namespaces")
+	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List pods in all namespaces")
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace to list pods from")
 	cmd.Flags().StringVarP(&selector, "selector", "l", "", "Selector (label query) to filter on")
-	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by (name, status, age)")
+	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort pods by key (name, status, age)")
 	cmd.Flags().BoolVar(&reverse, "reverse", false, "Reverse sort order")
-	cmd.Flags().BoolVar(&showMetrics, "metrics", false, "Show resource metrics")
+	cmd.Flags().BoolVar(&showMetrics, "metrics", false, "Show pod metrics")
 
 	return cmd
 }
