@@ -99,15 +99,7 @@ func contextCmd() *cobra.Command {
 
 // versionCmd returns the version command
 func versionCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Long:  `Print version information.`,
-	}
-
-	cmd.AddCommand(getVersionCmd())
-
-	return cmd
+	return getVersionCmd()
 }
 
 // initializeClient initializes the Kubernetes client configuration
