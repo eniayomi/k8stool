@@ -60,6 +60,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd())
 	rootCmd.AddCommand(getNamespaceCmd())
 	rootCmd.AddCommand(getMetricsCmd())
+	rootCmd.AddCommand(NewAgentCmd())
 }
 
 // getCmd returns the get command
