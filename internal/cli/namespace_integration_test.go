@@ -70,7 +70,7 @@ func TestNamespaceCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "direct switch to non-existent namespace",
-			args:    []string{"ns", "nonexistent-namespace"},
+			args:    []string{"nonexistent-namespace"},
 			wantErr: true,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Error: namespaces \"nonexistent-namespace\" not found")

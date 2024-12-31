@@ -22,6 +22,7 @@ func getNamespaceCmd() *cobra.Command {
 		Aliases: []string{"ns"},
 		Short:   "Manage Kubernetes namespaces",
 		Long:    "Manage Kubernetes namespaces, including switching between namespaces and viewing namespace information.",
+		Args:    cobra.MaximumNArgs(1),
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Skip cluster connection for namespace commands
 			return nil
@@ -110,7 +111,7 @@ func getNamespaceCmd() *cobra.Command {
 				return nil
 			}
 
-			// If no namespace provided, show current namespace
+			// If no args provided and not in interactive mode, show current namespace
 			current, err := contextService.GetCurrent()
 			if err != nil {
 				return fmt.Errorf("failed to get current context: %w", err)
@@ -121,8 +122,7 @@ func getNamespaceCmd() *cobra.Command {
 		},
 	}
 
-	// Add flags
-	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Select namespace interactively")
+	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Interactive mode")
 
 	// Add subcommands
 	cmd.AddCommand(getCurrentNamespaceCmd())
