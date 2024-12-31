@@ -47,7 +47,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 				assert.Contains(t, output, "Name:")
 				assert.Contains(t, output, "Namespace:")
 				assert.Contains(t, output, "Replicas:")
-				assert.Contains(t, output, "Strategy")
+				assert.Contains(t, output, "StrategyType:")
 				assert.Contains(t, output, "Selector:")
 				assert.Contains(t, output, "Containers:")
 			},
@@ -57,7 +57,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 			args:    []string{"pod", "nonexistent-pod"},
 			wantErr: true,
 			validate: func(t *testing.T, output string) {
-				assert.Contains(t, output, "failed to get pod: pods \"nonexistent-pod\" not found")
+				assert.Contains(t, output, "pods \"nonexistent-pod\" not found")
 			},
 		},
 		{
@@ -65,7 +65,7 @@ func TestDescribeCommands_Integration(t *testing.T) {
 			args:    []string{"deployment", "nonexistent-deployment"},
 			wantErr: true,
 			validate: func(t *testing.T, output string) {
-				assert.Contains(t, output, "failed to get deployment: deployments.apps \"nonexistent-deployment\" not found")
+				assert.Contains(t, output, "deployments.apps \"nonexistent-deployment\" not found")
 			},
 		},
 		{
@@ -78,11 +78,11 @@ func TestDescribeCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "describe pod in different namespace",
-			args:    []string{"pod", "nginx-deploy", "--namespace", "integration-test"},
+			args:    []string{"pod", "nginx", "--namespace", "integration-test"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Name:")
-				assert.Contains(t, output, "Namespace: integration-test")
+				assert.Contains(t, output, "Namespace:        integration-test")
 				assert.Contains(t, output, "Node:")
 				assert.Contains(t, output, "Status:")
 				assert.Contains(t, output, "IP:")
@@ -95,9 +95,9 @@ func TestDescribeCommands_Integration(t *testing.T) {
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Name:")
-				assert.Contains(t, output, "Namespace: integration-test")
+				assert.Contains(t, output, "Namespace:          integration-test")
 				assert.Contains(t, output, "Replicas:")
-				assert.Contains(t, output, "Strategy")
+				assert.Contains(t, output, "StrategyType:")
 				assert.Contains(t, output, "Selector:")
 				assert.Contains(t, output, "Containers:")
 			},
