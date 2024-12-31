@@ -52,7 +52,8 @@ jobs:
       uses: test-summary/action@v1
       with:
         paths: |
-          ./report.xml            
+          ./report.xml
+        show: "all"    
       if: always()
 
 
