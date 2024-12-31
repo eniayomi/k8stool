@@ -1,40 +1,56 @@
 # Context Commands
 
-Commands for managing Kubernetes contexts.
+The context command allows you to view, switch, and manage Kubernetes contexts. These commands work without requiring cluster access, as they only interact with your kubeconfig file.
 
-## Context Operations
+## Usage
 
 ```bash
-k8stool ctx [command]
 k8stool context [command]    # Long form
+k8stool ctx [command]       # Short form
 ```
 
-### Commands
-| Command | Description |
-|---------|-------------|
-| `current` | Show current context |
-| `<context-name>` | Switch to specific context |
-| `switch` | Interactive context selection |
+## Available Commands
 
-### Examples
-
-Show current context:
+### Show Current Context
 ```bash
 k8stool ctx current
-k8stool context current
 ```
+Shows details about the current context including:
+- Context name
+- Cluster
+- User
+- Namespace (if set)
 
-Switch to specific context:
+### List Contexts
 ```bash
-k8stool ctx production
-k8stool context production
+k8stool ctx list
+k8stool ctx ls
 ```
+Lists all available contexts with their details. The current context is marked with an asterisk (*).
+Output includes:
+- Context name
+- Cluster name
+- User
+- Namespace (if set)
+- Active status (*)
 
-Interactive context switching:
+### Switch Context
+Direct switch:
+```bash
+k8stool ctx switch <context-name>
+```
+Switch to a specific context directly.
+
+Interactive switch:
 ```bash
 k8stool ctx switch
-k8stool context switch
+k8stool ctx switch -i
 ```
+Opens an interactive menu to select and switch contexts. Features:
+- Shows current context with "(current)" suffix
+- Uses colored output for better visibility
+- Shows 10 contexts at a time
+- Uses emoji indicators for selection
 
 ## Interactive Mode Features
 
@@ -46,9 +62,9 @@ The interactive mode provides:
 
 Example output:
 ```
-Select Kubernetes context:
+Select context:
   dev-cluster
-> production
+👉 production (current)
   staging
   minikube
 ```
@@ -60,6 +76,7 @@ The output includes:
 - Cluster name
 - User
 - Namespace (if set)
+- Active status (*)
 
 Example output when showing current context:
 ```

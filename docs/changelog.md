@@ -5,6 +5,34 @@ All notable changes to K8sTool will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.0] - 2024-12-31
+
+### Added
+- Describe command for detailed resource information
+  - Support for pods and deployments
+  - Namespace-aware resource lookup
+  - Detailed output with all resource fields
+  - Color-coded status information
+
+### Enhanced
+- Context Management
+  - Improved context switching with better error handling
+  - Support for context aliases in commands
+  - Better validation of context names
+  - Enhanced error messages for invalid contexts
+
+- Namespace Management
+  - Direct namespace switching without subcommands
+  - Better error handling for non-existent namespaces
+  - Improved interactive mode for namespace switching
+  - Enhanced namespace validation
+
+### Fixed
+- Fixed context switching when using aliases
+- Fixed namespace switching error messages
+- Improved error handling in describe commands
+- Fixed formatting issues in resource output
+
 ## [v0.1.0] - 2024-12-28
 
 ### Added

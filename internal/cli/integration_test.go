@@ -32,9 +32,11 @@ func TestContextCommands_Integration(t *testing.T) {
 			args:    []string{},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
-				assert.Contains(t, output, "CURRENT")
 				assert.Contains(t, output, "NAME")
 				assert.Contains(t, output, "CLUSTER")
+				assert.Contains(t, output, "USER")
+				assert.Contains(t, output, "NAMESPACE")
+				assert.Contains(t, output, "ACTIVE")
 			},
 		},
 		{
@@ -53,7 +55,7 @@ func TestContextCommands_Integration(t *testing.T) {
 			args:    []string{"nonexistent-context"},
 			wantErr: true,
 			validate: func(t *testing.T, output string) {
-				assert.Contains(t, output, "Error: context \"nonexistent-context\" does not exist")
+				assert.Contains(t, output, "failed to switch context: context \"nonexistent-context\" not found")
 			},
 		},
 	}
@@ -64,14 +66,16 @@ func TestContextCommands_Integration(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			// Create command
-			cmd := getContextCmd()
-			cmd.SetOut(w)
-			cmd.SetErr(w)
-			cmd.SetArgs(append([]string{tt.command}, tt.args...))
+			// Create fresh command for each test
+			rootCmd := getContextCmd()
+			args := []string{tt.command}
+			args = append(args, tt.args...)
+			rootCmd.SetArgs(args)
+			rootCmd.SetOut(w)
+			rootCmd.SetErr(w)
 
 			// Execute command
-			execErr := cmd.Execute()
+			execErr := rootCmd.Execute()
 
 			// Read output
 			w.Close()

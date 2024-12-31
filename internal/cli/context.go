@@ -3,9 +3,10 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
-	"k8stool/internal/k8s"
+	"k8stool/internal/k8s/context"
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
@@ -15,134 +16,172 @@ func getContextCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "context",
 		Aliases: []string{"ctx"},
-		Short:   "Show, list or switch Kubernetes contexts",
-		Long:    `Show current context, list all available contexts in your kubeconfig, or switch to a different context`,
+		Short:   "Manage Kubernetes contexts",
+		Long:    "Manage Kubernetes contexts, including switching between contexts and viewing context information.",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Skip cluster connection for context commands
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Initialize context service without cluster access
+			contextService, err := context.NewContextOnlyService()
+			if err != nil {
+				return fmt.Errorf("failed to initialize context service: %w", err)
+			}
+
+			current, err := contextService.GetCurrent()
+			if err != nil {
+				return fmt.Errorf("failed to get current context: %w", err)
+			}
+
+			fmt.Printf("Current context: %s\n", current.Name)
+			return nil
+		},
 	}
 
-	cmd.AddCommand(listContextCmd())
-	cmd.AddCommand(currentContextCmd())
+	// Add subcommands
+	cmd.AddCommand(getCurrentContextCmd())
+	cmd.AddCommand(listContextsCmd())
 	cmd.AddCommand(switchContextCmd())
 
 	return cmd
 }
 
-func listContextCmd() *cobra.Command {
+func getCurrentContextCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "List all available contexts",
+		Use:   "current",
+		Short: "Show current context",
+		Long:  "Display information about the current Kubernetes context.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := k8s.NewClient()
+			contextService, err := context.NewContextOnlyService()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to initialize context service: %w", err)
 			}
 
-			contexts, current, err := client.GetContexts()
+			current, err := contextService.GetCurrent()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get current context: %w", err)
 			}
 
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.TabIndent)
-			fmt.Fprintln(w, "CURRENT\tNAME\tCLUSTER")
-
-			for _, ctx := range contexts {
-				currentMarker := " "
-				if ctx.Name == current {
-					currentMarker = "*"
-				}
-				fmt.Fprintf(w, "%s\t%s\t%s\n", currentMarker, ctx.Name, ctx.Cluster)
+			fmt.Printf("Current context: %s\n", current.Name)
+			fmt.Printf("Cluster: %s\n", current.Cluster)
+			fmt.Printf("User: %s\n", current.User)
+			if current.Namespace != "" {
+				fmt.Printf("Namespace: %s\n", current.Namespace)
 			}
 
-			return w.Flush()
+			return nil
 		},
 	}
 }
 
-func currentContextCmd() *cobra.Command {
+func listContextsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "current",
-		Short: "Show current context",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List available contexts",
+		Long:    "Display a list of all available Kubernetes contexts.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := k8s.NewClient()
+			contextService, err := context.NewContextOnlyService()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to initialize context service: %w", err)
 			}
 
-			current, err := client.GetCurrentContext()
+			contexts, err := contextService.List()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to list contexts: %w", err)
 			}
 
-			fmt.Printf("Current context: %s\n", current)
+			// Sort contexts by name
+			contexts = contextService.Sort(contexts, context.SortByName)
+
+			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+			fmt.Fprintln(w, "NAME\tCLUSTER\tUSER\tNAMESPACE\tACTIVE")
+			for _, ctx := range contexts {
+				active := ""
+				if ctx.IsActive {
+					active = "*"
+				}
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+					ctx.Name,
+					ctx.Cluster,
+					ctx.User,
+					ctx.Namespace,
+					active)
+			}
+			w.Flush()
+
 			return nil
 		},
 	}
 }
 
 func switchContextCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "switch [context-name]",
-		Short: "Switch Kubernetes context",
-		Long:  `Switch Kubernetes context either by providing the name or selecting interactively`,
-		Args:  cobra.MaximumNArgs(1),
+	var interactive bool
+
+	cmd := &cobra.Command{
+		Use:   "switch [context]",
+		Short: "Switch to a different context",
+		Long:  "Switch to a different Kubernetes context, either by name or interactively.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := k8s.NewClient()
+			contextService, err := context.NewContextOnlyService()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to initialize context service: %w", err)
 			}
 
-			// If context name is provided as argument, switch directly
-			if len(args) == 1 {
-				if err := client.SwitchContext(args[0]); err != nil {
-					return err
+			contexts, err := contextService.List()
+			if err != nil {
+				return fmt.Errorf("failed to list contexts: %w", err)
+			}
+
+			var targetContext string
+
+			if interactive || len(args) == 0 {
+				// Sort contexts by name for consistent ordering
+				contexts = contextService.Sort(contexts, context.SortByName)
+
+				var options []string
+				for _, ctx := range contexts {
+					name := ctx.Name
+					if ctx.IsActive {
+						name += " (current)"
+					}
+					options = append(options, name)
 				}
-				fmt.Printf("Switched to context %q\n", args[0])
-				return nil
-			}
 
-			// Otherwise, show interactive prompt
-			contexts, current, err := client.GetContexts()
-			if err != nil {
-				return err
-			}
-
-			var contextNames []string
-			for _, ctx := range contexts {
-				if ctx.Name == current {
-					contextNames = append(contextNames, fmt.Sprintf("%s (current)", ctx.Name))
-				} else {
-					contextNames = append(contextNames, ctx.Name)
+				prompt := &promptui.Select{
+					Label: "Select context:",
+					Items: options,
+					Size:  10,
+					Templates: &promptui.SelectTemplates{
+						Label:    "{{ . }}",
+						Active:   "\U0001F449 {{ . | cyan }}",
+						Inactive: "  {{ . | white }}",
+						Selected: "\U0001F44D {{ . | green }}",
+					},
 				}
+
+				idx, _, err := prompt.Run()
+				if err != nil {
+					return fmt.Errorf("failed to get user input: %v", err)
+				}
+
+				// Extract context name from selected option
+				targetContext = strings.TrimSuffix(options[idx], " (current)")
+			} else {
+				targetContext = args[0]
 			}
 
-			prompt := promptui.Select{
-				Label: "Select Kubernetes Context",
-				Items: contextNames,
-				Size:  10,
-				Templates: &promptui.SelectTemplates{
-					Label:    "{{ . }}",
-					Active:   "\U0001F449 {{ . | cyan }}",
-					Inactive: "  {{ . | white }}",
-					Selected: "\U0001F44D {{ . | green }}",
-				},
+			if err := contextService.SwitchContext(targetContext); err != nil {
+				return fmt.Errorf("failed to switch context: %w", err)
 			}
 
-			idx, _, err := prompt.Run()
-			if err != nil {
-				return fmt.Errorf("prompt failed: %v", err)
-			}
-
-			selectedContext := contexts[idx].Name
-			if selectedContext == current {
-				fmt.Printf("Already using context %q\n", selectedContext)
-				return nil
-			}
-
-			if err := client.SwitchContext(selectedContext); err != nil {
-				return err
-			}
-
-			fmt.Printf("Switched to context %q\n", selectedContext)
+			fmt.Printf("Switched to context %q\n", targetContext)
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Select context interactively")
+
+	return cmd
 }

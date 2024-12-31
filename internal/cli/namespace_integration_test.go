@@ -26,19 +26,19 @@ func TestNamespaceCommands_Integration(t *testing.T) {
 	}{
 		{
 			name:    "list namespaces",
-			args:    []string{"--list"},
+			args:    []string{"list"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
-				assert.Contains(t, output, "NAMESPACE")
+				assert.Contains(t, output, "NAME")
 				assert.Contains(t, output, "STATUS")
-				assert.Contains(t, output, "CURRENT")
+				assert.Contains(t, output, "Active")
 				assert.Contains(t, output, "kube-system")
 				assert.Contains(t, output, "default")
 			},
 		},
 		{
 			name:    "show current namespace",
-			args:    []string{},
+			args:    []string{"current"},
 			wantErr: false,
 			validate: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Current namespace: ")
@@ -46,18 +46,34 @@ func TestNamespaceCommands_Integration(t *testing.T) {
 		},
 		{
 			name:    "switch to non-existent namespace",
-			args:    []string{"nonexistent-namespace"},
+			args:    []string{"switch", "nonexistent-namespace"},
 			wantErr: true,
 			validate: func(t *testing.T, output string) {
-				assert.Contains(t, output, "Error: namespace nonexistent-namespace not found: namespaces \"nonexistent-namespace\" not found")
+				assert.Contains(t, output, "Error: namespaces \"nonexistent-namespace\" not found")
 			},
 		},
 		{
-			name:    "interactive mode",
-			args:    []string{"--interactive"},
+			name:    "interactive mode with switch command",
+			args:    []string{"switch", "-i"},
 			wantErr: true, // Will fail in non-interactive test environment
 			validate: func(t *testing.T, output string) {
-				assert.Contains(t, output, "prompt failed")
+				assert.Contains(t, output, "Error: failed to get user input")
+			},
+		},
+		{
+			name:    "interactive mode with -i flag",
+			args:    []string{"-i"},
+			wantErr: true, // Will fail in non-interactive test environment
+			validate: func(t *testing.T, output string) {
+				assert.Contains(t, output, "Error: failed to get user input")
+			},
+		},
+		{
+			name:    "direct switch to non-existent namespace",
+			args:    []string{"nonexistent-namespace"},
+			wantErr: true,
+			validate: func(t *testing.T, output string) {
+				assert.Contains(t, output, "Error: namespaces \"nonexistent-namespace\" not found")
 			},
 		},
 	}

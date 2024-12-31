@@ -42,8 +42,19 @@ See [Logs](commands/logs.md) for more details.
 
 ### Forward Ports
 ```bash
+# Forward port to pod
 k8stool port-forward pod nginx 8080:80
-k8stool pf -i    # Interactive mode
+k8stool pf pod nginx 8080:80
+
+# Forward port to deployment
+k8stool port-forward deployment nginx 8080:80
+k8stool pf deploy nginx 8080:80
+
+# Interactive mode with guided setup
+k8stool pf -i
+
+# Forward using UDP protocol
+k8stool pf pod nginx 8080:80 --protocol=udp
 ```
 See [Port Forward](commands/port-forward.md) for more details.
 
@@ -54,12 +65,22 @@ k8stool metrics nodes
 ```
 See [Metrics](commands/metrics.md) for more details.
 
-### Switch Context/Namespace
+### Manage Contexts
 ```bash
-k8stool ctx switch    # Interactive context switch
-k8stool ns -i        # Interactive namespace switch
+k8stool ctx current     # Show current context
+k8stool ctx list       # List all contexts
+k8stool ctx switch     # Interactive context switch
 ```
-See [Context](commands/context.md) and [Namespace](commands/namespace.md) for more details.
+See [Context](commands/context.md) for more details.
+
+### Manage Namespaces
+```bash
+k8stool ns                # Show current namespace
+k8stool ns list          # List all namespaces
+k8stool ns -i            # Interactive namespace switch
+k8stool ns <name>        # Switch to namespace directly
+```
+See [Namespace](commands/namespace.md) for more details.
 
 ## Next Steps
 

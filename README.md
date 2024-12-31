@@ -21,7 +21,7 @@ Download the latest binary for your platform from the [releases page](https://gi
 
 #### Linux
 ```bash
-curl -LO https://github.com/eniayomi/k8stool/releases/download/v0.0.5/k8stool_Linux_arm64.tar.gz
+curl -LO https://github.com/eniayomi/k8stool/releases/download/v0.2.0/k8stool_Linux_arm64.tar.gz
 tar xzf k8stool_Linux_arm64.tar.gz
 cd k8stool_Linux_arm64
 chmod +x k8stool
@@ -30,7 +30,7 @@ sudo mv k8stool /usr/local/bin/k8stool
 
 #### macOS
 ```bash
-curl -LO https://github.com/eniayomi/k8stool/releases/download/v0.0.5/k8stool_Darwin_arm64.tar.gz
+curl -LO https://github.com/eniayomi/k8stool/releases/download/v0.2.0/k8stool_Darwin_arm64.tar.gz
 tar xzf k8stool_Darwin_arm64.tar.gz
 cd k8stool_Darwin_arm64
 chmod +x k8stool
@@ -40,7 +40,7 @@ sudo mv k8stool /usr/local/bin/k8stool
 #### Windows
 ```bash
 # Download the zip file
-curl -LO https://github.com/eniayomi/k8stool/releases/download/v0.0.5/k8stool_Windows_x86_64.zip
+curl -LO https://github.com/eniayomi/k8stool/releases/download/v0.2.0/k8stool_Windows_x86_64.zip
 
 # Extract the executable
 Expand-Archive -Path k8stool_Windows_x86_64.zip -DestinationPath k8stool
@@ -50,7 +50,7 @@ move k8stool\k8stool.exe C:\Windows\System32\k8stool.exe
 ```
 
 Alternatively, you can:
-1. Download `k8stool_Windows_x86_64.zip` from the [releases page](https://github.com/eniayomi/k8stool/releases) or [directly](https://github.com/eniayomi/k8stool/releases/download/v0.0.5/k8stool_Windows_x86_64.zip)
+1. Download `k8stool_Windows_x86_64.zip` from the [releases page](https://github.com/eniayomi/k8stool/releases) or [directly](https://github.com/eniayomi/k8stool/releases/download/v0.2.0/k8stool_Windows_x86_64.zip)
 2. Extract the ZIP file
 3. Move `k8stool.exe` to a directory in your PATH
 

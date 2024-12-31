@@ -1,40 +1,53 @@
 # Namespace Commands
 
-Commands for managing Kubernetes namespace selection.
+The namespace command allows you to view, switch, and manage Kubernetes namespaces.
 
-## Namespace Operations
+## Usage
 
 ```bash
-k8stool ns [command]
-k8stool namespace [command]    # Long form
+k8stool namespace [namespace_name]    # Long form
+k8stool ns [namespace_name]          # Short form
 ```
 
-### Commands
-| Command | Description |
-|---------|-------------|
-| (no args) | Show current namespace |
-| `<namespace-name>` | Switch to specific namespace |
-| `-i, --interactive` | Interactive namespace selection |
+## Available Commands
 
-### Examples
-
-Show current namespace:
+### Show Current Namespace
 ```bash
 k8stool ns
-k8stool namespace
+k8stool ns current
 ```
+Shows the currently active namespace.
 
-Switch to specific namespace:
+### List Namespaces
 ```bash
-k8stool ns production
-k8stool namespace production
+k8stool ns list
+k8stool ns ls
 ```
+Lists all available namespaces with their status. Output includes:
+- Namespace name
+- Status
+- Active status (*)
 
-Interactive namespace selection:
+### Switch Namespace
+
+Direct switch (multiple formats):
 ```bash
-k8stool ns -i
-k8stool namespace --interactive
+k8stool ns <namespace-name>           # Direct switch (new shorthand)
+k8stool ns switch <namespace-name>    # Using switch subcommand
 ```
+Switch to a different namespace directly. The command will validate that the namespace exists before switching.
+
+Interactive switch:
+```bash
+k8stool ns -i                  # Interactive shorthand
+k8stool ns switch             # Interactive with switch subcommand
+k8stool ns switch -i          # Interactive with flag
+```
+Opens an interactive menu to select and switch namespaces. Features:
+- Shows current namespace with "(current)" suffix
+- Uses colored output for better visibility
+- Shows 10 namespaces at a time
+- Uses emoji indicators for selection
 
 ## Interactive Mode Features
 
@@ -46,29 +59,35 @@ The interactive mode provides:
 
 Example output:
 ```
-Select Kubernetes namespace:
+Select namespace:
   default
+👉 production (current)
   kube-system
-> production
-  staging
+  monitoring
 ```
 
 ## Output
 
 The output includes:
 - Namespace name
-- Status (Active)
-- Age
+- Status (color-coded)
+- Active status (*)
 
 Example output when showing current namespace:
 ```
 Current namespace: production
-Status: Active
-Age: 30d
+```
+
+Example output when switching namespace:
+```
+Switched to namespace "production"
+```
+
+Example error when namespace doesn't exist:
+```
+Error: namespaces "nonexistent" not found
 ```
 
 ## Related Commands
 
 - [Context](context.md): Manage context selection
-- [Pods](pods.md): List pods in namespace
-- [Deployments](deployments.md): List deployments in namespace 
