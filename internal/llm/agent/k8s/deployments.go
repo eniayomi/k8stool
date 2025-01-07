@@ -16,7 +16,7 @@ func (a *Agent) DeploymentHandler(ctx context.Context, params TaskParams) (*Task
 	}
 
 	switch params.Action {
-	case "inspect":
+	case "inspect", "get":
 		return a.inspectDeployment(ctx, params)
 	case "scale":
 		// Validate scale operation

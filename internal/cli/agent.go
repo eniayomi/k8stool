@@ -28,7 +28,7 @@ var configCmd = &cobra.Command{
 func init() {
 	// Add provider command to agent
 	agentCmd.AddCommand(providerCmd)
-	
+
 	// Add config command to provider
 	providerCmd.AddCommand(configCmd)
-} 
+}

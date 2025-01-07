@@ -5,8 +5,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"k8stool/internal/embeddings/store"
+	"k8stool/internal/learning"
 	"k8stool/internal/llm/agent/k8s"
 	"k8stool/internal/llm/config"
 
@@ -34,8 +37,31 @@ Examples:
   # List available providers
   k8stool agent provider list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Create a new agent
-			agent, err := k8s.NewAgent()
+			// Load OpenAI configuration
+			cfg, err := config.LoadOpenAIConfig()
+			if err != nil {
+				return fmt.Errorf("failed to load OpenAI config: %w", err)
+			}
+
+			// Initialize stores
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("failed to get home directory: %w", err)
+			}
+
+			k8sToolDir := filepath.Join(homeDir, ".k8stool")
+			embedStore := store.NewFileStore(cfg.APIKey)
+			if err := embedStore.Load(filepath.Join(k8sToolDir, "embeddings.json")); err != nil {
+				return fmt.Errorf("failed to load embeddings: %w", err)
+			}
+
+			learnStore, err := learning.New(filepath.Join(k8sToolDir, "learning.json"))
+			if err != nil {
+				return fmt.Errorf("failed to initialize learning store: %w", err)
+			}
+
+			// Create agent
+			agent, err := k8s.NewAgent(embedStore, learnStore)
 			if err != nil {
 				return fmt.Errorf("failed to create agent: %w", err)
 			}
@@ -44,10 +70,11 @@ Examples:
 			if len(args) == 0 {
 				fmt.Println("Starting chat with Kubernetes AI Agent (type 'exit' or 'quit' to end)")
 				fmt.Println("------------------------------------------------------------")
+				fmt.Printf("\nCurrent Context: %s\nCurrent Namespace: %s\n\n", agent.GetContext().CurrentContext, agent.GetContext().Namespace)
 
 				reader := bufio.NewReader(os.Stdin)
 				for {
-					fmt.Print("\n> ")
+					fmt.Print("> ")
 					input, err := reader.ReadString('\n')
 					if err != nil {
 						return fmt.Errorf("failed to read input: %w", err)
@@ -71,7 +98,7 @@ Examples:
 						continue
 					}
 
-					fmt.Printf("\n%s\n", response)
+					fmt.Printf("\n%s\n\n", response)
 				}
 			}
 

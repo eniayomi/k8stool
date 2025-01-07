@@ -24,9 +24,15 @@ const (
 	TaskContextGet      TaskType = "context_get"
 	TaskNamespaceList   TaskType = "namespace_list"
 	TaskNamespaceGet    TaskType = "namespace_get"
+	TaskGet             TaskType = "get"
+	TaskList            TaskType = "list"
+	TaskDescribe        TaskType = "describe"
+	TaskLogs            TaskType = "logs"
+	TaskExec            TaskType = "exec"
+	TaskPortForward     TaskType = "port-forward"
 )
 
-// K8sContext holds the current Kubernetes context information
+// K8sContext holds information about the current Kubernetes context
 type K8sContext struct {
 	CurrentContext string
 	Namespace      string
@@ -48,20 +54,24 @@ type ResourceValidator interface {
 
 // TaskResult represents the result of a Kubernetes operation
 type TaskResult struct {
-	Success     bool
-	Output      string
-	Error       error
-	Suggestions []string
-	Resources   []string // Affected resources
+	Success       bool
+	Output        string
+	Error         error
+	Suggestions   []string
+	Resources     []string // Affected resources
+	NoExplanation bool     // Skip explanation formatting
 }
 
 // TaskParams holds parameters for Kubernetes operations
 type TaskParams struct {
-	ResourceType string
-	ResourceName string
-	Namespace    string
-	Action       string
-	ExtraParams  map[string]interface{}
+	ResourceType  string
+	ResourceName  string
+	Namespace     string
+	Action        string
+	ExtraParams   map[string]interface{}
+	ContainerName string
+	Command       []string
+	Flags         map[string]interface{}
 }
 
 // New creates a new Kubernetes task handler

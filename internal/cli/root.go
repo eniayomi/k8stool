@@ -30,6 +30,10 @@ var rootCmd = &cobra.Command{
 	Long: `A CLI tool that helps you interact with Kubernetes clusters,
 allowing you to view pods, logs, deployments, and more.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Skip client initialization for commands that don't need it
+		if cmd.Name() == "embeddings" || cmd.Parent().Name() == "embeddings" {
+			return nil
+		}
 		return initializeClient()
 	},
 }
@@ -61,6 +65,7 @@ func init() {
 	rootCmd.AddCommand(getNamespaceCmd())
 	rootCmd.AddCommand(getMetricsCmd())
 	rootCmd.AddCommand(NewAgentCmd())
+	rootCmd.AddCommand(NewEmbeddingsCmd())
 }
 
 // getCmd returns the get command
